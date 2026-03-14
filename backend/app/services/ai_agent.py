@@ -1,9 +1,15 @@
+import logging
+
 import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models.models import Tool, Conversation, Message, ToolExecution
+from app.models.models import Tool, Conversation, Message, ToolExecution, Flow, ConversationFlowState
+from app.services.flow_engine import flow_engine
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are an AI customer support assistant. You help customers resolve their issues quickly and efficiently.
 
@@ -18,6 +24,7 @@ Guidelines:
 - Always confirm before executing irreversible actions
 - If the customer is frustrated, acknowledge their feelings first
 - Respond in the same language the customer uses
+- IMPORTANT: If flow instructions are provided below, you MUST follow them exactly. Do only what the current step says. Do NOT decide on your own to escalate, skip steps, or ask questions not specified in the flow.
 """
 
 
@@ -116,15 +123,56 @@ class AIAgent:
         db.add(customer_msg)
         await db.flush()
 
+        # --- Flow engine integration ---
+        system_prompt = SYSTEM_PROMPT
+        active_tools = tools
+
+        # Load existing flow state
+        flow_state = None
+        flow = None
+        just_matched = False
+
+        result = await db.execute(
+            select(ConversationFlowState).where(
+                ConversationFlowState.conversation_id == conversation.id
+            )
+        )
+        flow_state = result.scalar_one_or_none()
+        if flow_state and flow_state.status == "active":
+            flow = await db.get(Flow, flow_state.flow_id)
+
+        # Try to match a flow if none active
+        if not flow or not flow_state or flow_state.status != "active":
+            matched = await flow_engine.match_flow(db, conversation.workspace_id, user_message)
+            if matched:
+                flow = matched
+                flow_state = await flow_engine.start_flow(db, conversation, matched)
+                just_matched = True
+                logger.info(f"Flow matched: '{flow.name}', starting at node: {flow_state.current_node_id}")
+
+        # If flow is active, replace the system prompt entirely
+        if flow and flow_state and flow_state.status == "active":
+            # Only advance on customer answer if this is a continuing flow, not the trigger message
+            if not just_matched:
+                flow_engine.advance_after_customer_message(flow_state, flow, user_message)
+                logger.info(f"Flow advanced to node: {flow_state.current_node_id}, data: {flow_state.collected_data}")
+            flow_prompt = flow_engine.compile_system_prompt(flow, flow_state)
+            if flow_prompt:
+                system_prompt = flow_prompt
+                logger.info(f"[FLOW] Replaced system prompt for node: {flow_state.current_node_id}")
+            active_tools = flow_engine.get_available_tools(flow, flow_state, tools)
+        else:
+            logger.info("No active flow for this conversation")
+
         # Build message history
         messages = self._build_messages(conversation.messages + [customer_msg])
-        claude_tools = self._db_tools_to_claude_format(tools)
+        claude_tools = self._db_tools_to_claude_format(active_tools)
 
         # Call Claude
         kwargs = {
             "model": settings.AI_MODEL,
             "max_tokens": 1024,
-            "system": SYSTEM_PROMPT,
+            "system": system_prompt,
             "messages": messages,
         }
         if claude_tools:
@@ -182,6 +230,26 @@ class AIAgent:
         conversation.status = "ai_handling"
         if not conversation.category and ai_text:
             conversation.category = self._detect_category(user_message)
+
+        # Advance flow after AI responds
+        if flow and flow_state and flow_state.status == "active":
+            await flow_engine.advance_flow(db, flow_state, flow, ai_text)
+            # If flow escalated, generate handoff for the human agent
+            if flow_state.status == "escalated":
+                conversation.status = "escalated"
+                escalation_node = flow_engine.get_escalation_node(flow, flow_state)
+                handoff = flow_engine.build_handoff(flow, flow_state, escalation_node)
+                conversation.ai_summary = handoff["summary"]
+                if handoff.get("priority"):
+                    conversation.priority = handoff["priority"]
+                # Save handoff notes as a system message visible to agents
+                handoff_msg = Message(
+                    conversation_id=conversation.id,
+                    role="system",
+                    content=handoff["notes"],
+                )
+                db.add(handoff_msg)
+                logger.info(f"[FLOW] Escalated: {handoff['summary']}")
 
         await db.commit()
 
