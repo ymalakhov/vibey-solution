@@ -9,7 +9,7 @@ from app.schemas.schemas import WorkspaceCreate, WidgetConfig
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 
-@router.post("/")
+@router.post("")
 async def create_workspace(data: WorkspaceCreate, db: AsyncSession = Depends(get_db)):
     workspace = Workspace(name=data.name, domain=data.domain)
     db.add(workspace)

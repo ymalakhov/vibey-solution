@@ -1,6 +1,8 @@
 """Seed script to create demo workspace with sample tools."""
 import asyncio
 
+from sqlalchemy import select, delete
+
 from app.database import init_db, async_session
 from app.models.models import Workspace, Tool
 
@@ -9,6 +11,13 @@ async def seed():
     await init_db()
 
     async with async_session() as db:
+        # Remove existing demo workspace and its tools if present
+        existing = await db.execute(select(Workspace).where(Workspace.id == "demo"))
+        if existing.scalar_one_or_none():
+            await db.execute(delete(Tool).where(Tool.workspace_id == "demo"))
+            await db.execute(delete(Workspace).where(Workspace.id == "demo"))
+            await db.flush()
+
         # Create demo workspace
         ws = Workspace(id="demo", name="Demo Shop", domain="demo.shop.com")
         db.add(ws)

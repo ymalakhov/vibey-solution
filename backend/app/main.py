@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Support Copilot", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="AI Support Copilot", version="0.1.0", lifespan=lifespan, redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,4 +41,4 @@ async def health():
 # Serve widget.js as static file
 widget_dir = Path(__file__).parent.parent.parent / "widget"
 if widget_dir.exists():
-    app.mount("/", StaticFiles(directory=str(widget_dir)), name="widget")
+    app.mount("/widget", StaticFiles(directory=str(widget_dir)), name="widget")

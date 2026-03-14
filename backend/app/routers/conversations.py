@@ -14,7 +14,7 @@ from app.services.tool_executor import execute_tool
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-@router.get("/", response_model=list[ConversationResponse])
+@router.get("", response_model=list[ConversationResponse])
 async def list_conversations(workspace_id: str, status: str | None = None, db: AsyncSession = Depends(get_db)):
     query = select(Conversation).where(Conversation.workspace_id == workspace_id)
     if status:

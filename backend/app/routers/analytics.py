@@ -9,7 +9,7 @@ from app.schemas.schemas import AnalyticsResponse
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
-@router.get("/", response_model=AnalyticsResponse)
+@router.get("", response_model=AnalyticsResponse)
 async def get_analytics(workspace_id: str, db: AsyncSession = Depends(get_db)):
     # Total conversations
     total = await db.execute(

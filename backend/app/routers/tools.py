@@ -9,7 +9,7 @@ from app.schemas.schemas import ToolCreate, ToolUpdate, ToolResponse
 router = APIRouter(prefix="/tools", tags=["tools"])
 
 
-@router.get("/", response_model=list[ToolResponse])
+@router.get("", response_model=list[ToolResponse])
 async def list_tools(workspace_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Tool).where(Tool.workspace_id == workspace_id).order_by(Tool.created_at.desc())
@@ -17,7 +17,7 @@ async def list_tools(workspace_id: str, db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.post("/", response_model=ToolResponse)
+@router.post("", response_model=ToolResponse)
 async def create_tool(workspace_id: str, data: ToolCreate, db: AsyncSession = Depends(get_db)):
     # Check unique name
     existing = await db.execute(
