@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const WORKSPACE_ID = "demo";
-const WS_URL = `ws://5fb8-178-158-206-108.ngrok-free.app/api/ws/admin/${WORKSPACE_ID}`;
+const WS_URL = `ws://localhost:8000/api/ws/admin/${WORKSPACE_ID}`;
 const MAX_RECONNECT_RETRIES = 5;
 const PING_INTERVAL_MS = 30000;
 
