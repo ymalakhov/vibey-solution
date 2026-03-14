@@ -1,9 +1,14 @@
+import base64
+from pathlib import Path
+
 import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
 from app.models.models import Tool, Conversation, Message, ToolExecution
+
+UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
 
 SYSTEM_PROMPT = """You are an AI customer support assistant. You help customers resolve their issues quickly and efficiently.
 
@@ -52,12 +57,40 @@ class AIAgent:
             })
         return claude_tools
 
+    def _build_content_with_attachments(self, text: str, attachments: list[dict] | None) -> str | list[dict]:
+        """Build content blocks with image attachments for Claude API."""
+        if not attachments:
+            return text
+        content = []
+        for att in attachments:
+            ct = att.get("content_type", "")
+            if ct.startswith("image/"):
+                # Read file and base64 encode
+                url_path = att.get("url", "")
+                # url is like /api/uploads/files/{workspace_id}/{saved_name}
+                parts = url_path.rstrip("/").split("/")
+                if len(parts) >= 2:
+                    file_path = UPLOADS_DIR / parts[-2] / parts[-1]
+                    if file_path.exists():
+                        b64 = base64.standard_b64encode(file_path.read_bytes()).decode()
+                        media_type = ct
+                        content.append({
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": media_type, "data": b64},
+                        })
+                        continue
+            # Non-image or failed to read: add as text reference
+            content.append({"type": "text", "text": f"[Attached file: {att.get('filename', 'file')}]"})
+        content.append({"type": "text", "text": text})
+        return content
+
     def _build_messages(self, messages: list[Message]) -> list[dict]:
         """Convert DB messages to Claude API message format."""
         claude_messages = []
         for i, msg in enumerate(messages):
             if msg.role == "customer":
-                claude_messages.append({"role": "user", "content": msg.content})
+                content = self._build_content_with_attachments(msg.content, msg.attachments)
+                claude_messages.append({"role": "user", "content": content})
             elif msg.role == "ai":
                 if msg.tool_call:
                     # Check if next message has a matching tool_result
@@ -104,6 +137,7 @@ class AIAgent:
         conversation: Conversation,
         user_message: str,
         tools: list[Tool],
+        attachments: list[dict] | None = None,
     ) -> dict:
         """Process a customer message and return AI response with possible tool calls."""
 
@@ -112,6 +146,7 @@ class AIAgent:
             conversation_id=conversation.id,
             role="customer",
             content=user_message,
+            attachments=attachments,
         )
         db.add(customer_msg)
         await db.flush()

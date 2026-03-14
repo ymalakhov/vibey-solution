@@ -10,6 +10,8 @@ from app.models.models import Conversation, Message, Tool, ToolExecution
 from app.schemas.schemas import ConversationResponse, ConversationDetail, ToolExecutionResponse
 from app.services.ai_agent import ai_agent
 from app.services.tool_executor import execute_tool
+from app.routers.chat import notify_conversation
+from app.services.connection_manager import manager
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -111,8 +113,35 @@ async def approve_execution(execution_id: str, agent_name: str = "agent", db: As
         ai_response = await ai_agent.continue_after_tool(
             db, conversation, tool_use_id, result, tools
         )
+        await notify_conversation(execution.conversation_id, {
+            "type": "tool_update",
+            "execution_id": execution.id,
+            "status": "executed",
+            "response": ai_response["text"],
+        })
+        # Notify admins about the AI follow-up
+        ai_msgs = [m for m in conversation.messages if m.role == "ai"]
+        if ai_msgs:
+            last_ai = ai_msgs[-1]
+            await manager.notify_admins_new_message(
+                conversation.workspace_id,
+                execution.conversation_id,
+                {
+                    "id": last_ai.id,
+                    "role": last_ai.role,
+                    "content": last_ai.content,
+                    "tool_call": last_ai.tool_call,
+                    "tool_result": last_ai.tool_result,
+                    "created_at": last_ai.created_at.isoformat() if last_ai.created_at else None,
+                },
+            )
         return {"ok": True, "result": result, "ai_response": ai_response["text"]}
 
+    await notify_conversation(execution.conversation_id, {
+        "type": "tool_update",
+        "execution_id": execution.id,
+        "status": "executed",
+    })
     return {"ok": True, "result": result}
 
 
@@ -123,4 +152,24 @@ async def reject_execution(execution_id: str, db: AsyncSession = Depends(get_db)
         raise HTTPException(404, "Execution not found")
     execution.status = "rejected"
     await db.commit()
+    await notify_conversation(execution.conversation_id, {
+        "type": "tool_update",
+        "execution_id": execution.id,
+        "status": "rejected",
+    })
+    # Notify admins about the rejection
+    conv = await db.get(Conversation, execution.conversation_id)
+    if conv:
+        await manager.notify_admins_new_message(
+            conv.workspace_id,
+            execution.conversation_id,
+            {
+                "id": execution.id,
+                "role": "system",
+                "content": f"Tool execution rejected",
+                "tool_call": None,
+                "tool_result": None,
+                "created_at": None,
+            },
+        )
     return {"ok": True}

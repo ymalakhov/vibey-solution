@@ -75,6 +75,7 @@ class MessageResponse(BaseModel):
     content: str
     tool_call: dict | None
     tool_result: dict | None
+    attachments: list[dict] | None = None
     created_at: datetime
 
     class Config:
@@ -91,6 +92,12 @@ class ChatMessage(BaseModel):
     content: str
     customer_email: str | None = None
     customer_name: str | None = None
+    attachments: list[dict] | None = None
+
+
+class AgentReply(BaseModel):
+    conversation_id: str
+    content: str
 
 
 # --- Tool execution ---

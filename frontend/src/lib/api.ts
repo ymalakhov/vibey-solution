@@ -56,6 +56,13 @@ export const sendMessage = (workspaceId: string, content: string, conversationId
     body: JSON.stringify({ content, customer_email: customerEmail, customer_name: customerName }),
   });
 
+// Agent reply
+export const sendAgentReply = (workspaceId: string, conversationId: string, content: string) =>
+  fetchApi(`/chat/${workspaceId}/agent-reply`, {
+    method: "POST",
+    body: JSON.stringify({ conversation_id: conversationId, content }),
+  });
+
 // Analytics
 export const getAnalytics = (workspaceId: string) =>
   fetchApi(`/analytics/?workspace_id=${workspaceId}`);

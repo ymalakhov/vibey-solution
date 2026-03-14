@@ -73,6 +73,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     tool_call: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     tool_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    attachments: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
