@@ -1,0 +1,76 @@
+/* ShopVibe shared styles (supplements Tailwind CDN) */
+
+:root {
+    --primary: #7C3AED;
+    --primary-light: #8B5CF6;
+    --primary-dark: #6D28D9;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #F9FAFB;
+}
+
+/* Scenario banner */
+.scenario-banner {
+    background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
+    color: white;
+    padding: 12px 0;
+    text-align: center;
+    font-size: 14px;
+}
+.scenario-banner .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.scenario-chip {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.scenario-chip:hover {
+    background: rgba(255,255,255,0.35);
+}
+
+/* Nav */
+nav a.active {
+    color: #7C3AED !important;
+    border-bottom: 2px solid #7C3AED;
+}
+
+/* Status badges */
+.badge-processing { background: #FEF3C7; color: #92400E; }
+.badge-shipped { background: #DBEAFE; color: #1E40AF; }
+.badge-delivered { background: #D1FAE5; color: #065F46; }
+.badge-returned { background: #FEE2E2; color: #991B1B; }
+.badge-cancelled { background: #F3F4F6; color: #374151; }
+.badge-active { background: #D1FAE5; color: #065F46; }
+.badge-locked { background: #FEE2E2; color: #991B1B; }
+.badge-suspended { background: #FEF3C7; color: #92400E; }
+
+/* Product card hover */
+.product-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+/* User switcher */
+.user-switcher select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #D1D5DB;
+    font-size: 14px;
+    background: white;
+}

@@ -39,6 +39,9 @@ export const getConversation = (id: string) =>
 export const resolveConversation = (id: string) =>
   fetchApi(`/conversations/${id}/resolve`, { method: "POST" });
 
+export const getEscalationContext = (conversationId: string) =>
+  fetchApi(`/conversations/${conversationId}/escalation-context`);
+
 // Tool executions
 export const getPendingExecutions = (workspaceId: string) =>
   fetchApi(`/conversations/executions/pending?workspace_id=${workspaceId}`);

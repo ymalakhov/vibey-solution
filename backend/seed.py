@@ -48,13 +48,35 @@ async def seed():
         ws = Workspace(id="demo", name="Demo Shop", domain="demo.shop.com")
         db.add(ws)
 
-        # Sample tools
+        # Sample tools (pointing to ShopVibe demo backend at localhost:9000)
         tools = [
             Tool(
                 workspace_id="demo",
+                name="lookup_customer",
+                description="Look up customer information including orders, subscription plan, account status, and contact details. Use this first when a customer provides their email.",
+                endpoint="http://localhost:9000/api/lookup-customer",
+                method="GET",
+                parameters=[
+                    {"name": "email", "type": "string", "description": "Customer email address", "required": True},
+                ],
+                requires_approval=False,
+            ),
+            Tool(
+                workspace_id="demo",
+                name="check_order_status",
+                description="Check the status and details of a specific order including tracking number, items, shipping address, and refund eligibility.",
+                endpoint="http://localhost:9000/api/order-status",
+                method="GET",
+                parameters=[
+                    {"name": "order_id", "type": "string", "description": "Order ID (e.g. ORD-1001)", "required": True},
+                ],
+                requires_approval=False,
+            ),
+            Tool(
+                workspace_id="demo",
                 name="refund_payment",
-                description="Process a refund for the customer's order. Use when customer requests money back.",
-                endpoint="https://httpbin.org/post",
+                description="Process a refund for a customer's order. Only works on refund-eligible (delivered) orders. Use after verifying order details with check_order_status.",
+                endpoint="http://localhost:9000/api/refund",
                 method="POST",
                 parameters=[
                     {"name": "order_id", "type": "string", "description": "Order ID to refund", "required": True},
@@ -65,21 +87,9 @@ async def seed():
             ),
             Tool(
                 workspace_id="demo",
-                name="change_subscription_plan",
-                description="Change customer's subscription plan to a different tier.",
-                endpoint="https://httpbin.org/post",
-                method="POST",
-                parameters=[
-                    {"name": "customer_email", "type": "string", "description": "Customer email", "required": True},
-                    {"name": "new_plan", "type": "string", "description": "New plan name (basic/pro/business)", "required": True},
-                ],
-                requires_approval=True,
-            ),
-            Tool(
-                workspace_id="demo",
                 name="reset_password",
-                description="Send password reset link to customer's email.",
-                endpoint="https://httpbin.org/post",
+                description="Send a password reset link to the customer's email address.",
+                endpoint="http://localhost:9000/api/reset-password",
                 method="POST",
                 parameters=[
                     {"name": "email", "type": "string", "description": "Customer email address", "required": True},
@@ -88,14 +98,50 @@ async def seed():
             ),
             Tool(
                 workspace_id="demo",
-                name="lookup_customer",
-                description="Look up customer information including orders, plan, and support history.",
-                endpoint="https://httpbin.org/get",
-                method="GET",
+                name="change_subscription_plan",
+                description="Change a customer's subscription plan tier. Available plans: basic ($9.99/mo), pro ($29.99/mo), business ($79.99/mo).",
+                endpoint="http://localhost:9000/api/change-subscription",
+                method="POST",
                 parameters=[
-                    {"name": "email", "type": "string", "description": "Customer email", "required": True},
+                    {"name": "customer_email", "type": "string", "description": "Customer email", "required": True},
+                    {"name": "new_plan", "type": "string", "description": "New plan name: basic, pro, or business", "required": True},
+                ],
+                requires_approval=True,
+            ),
+            Tool(
+                workspace_id="demo",
+                name="cancel_subscription",
+                description="Cancel a customer's active subscription. The subscription remains active until the end of the current billing period.",
+                endpoint="http://localhost:9000/api/cancel-subscription",
+                method="POST",
+                parameters=[
+                    {"name": "customer_email", "type": "string", "description": "Customer email", "required": True},
+                    {"name": "reason", "type": "string", "description": "Reason for cancellation", "required": False},
+                ],
+                requires_approval=True,
+            ),
+            Tool(
+                workspace_id="demo",
+                name="unlock_account",
+                description="Unlock a locked or suspended customer account, restoring it to active status.",
+                endpoint="http://localhost:9000/api/unlock-account",
+                method="POST",
+                parameters=[
+                    {"name": "email", "type": "string", "description": "Customer email address", "required": True},
                 ],
                 requires_approval=False,
+            ),
+            Tool(
+                workspace_id="demo",
+                name="update_shipping_address",
+                description="Update the shipping address for an order that is still in 'processing' status. Cannot update shipped or delivered orders.",
+                endpoint="http://localhost:9000/api/update-address",
+                method="POST",
+                parameters=[
+                    {"name": "order_id", "type": "string", "description": "Order ID to update", "required": True},
+                    {"name": "new_address", "type": "string", "description": "New shipping address", "required": True},
+                ],
+                requires_approval=True,
             ),
         ]
 
@@ -358,6 +404,55 @@ async def seed():
             db, "demo", "PayFlow Admin Docs", "file", {}
         )
 
+        shopvibe_source = await kb_service.create_source(
+            db, "demo", "ShopVibe Store Policies", "file", {}
+        )
+
+        # ShopVibe store policies KB document
+        shopvibe_doc_content = """# ShopVibe Store Policies
+
+## Return Policy
+- Items can be returned within 30 days of delivery for a full refund.
+- Items must be in original packaging and unused condition.
+- Returned items are inspected before refund is issued.
+- Refunds are processed within 5-7 business days after return is received.
+- Orders that have been returned are not eligible for additional refunds.
+- Only delivered orders are eligible for refund processing.
+
+## Shipping Information
+- Free standard shipping on orders over $50.
+- Standard shipping: 5-7 business days.
+- Express shipping: 2-3 business days ($9.99).
+- Overnight shipping: next business day ($19.99).
+- Shipping address can only be changed while the order is in "processing" status.
+- Once an order is shipped, the address cannot be modified.
+- Carriers used: UPS, USPS, FedEx.
+
+## Subscription Plans
+ShopVibe offers three subscription tiers:
+- **Basic** ($9.99/month): 5 GB Storage, Email Support, Basic Analytics.
+- **Pro** ($29.99/month): 50 GB Storage, Priority Support, Advanced Analytics, API Access.
+- **Business** ($79.99/month): Unlimited Storage, 24/7 Phone Support, Custom Analytics, API Access, SSO, Dedicated Manager.
+- Plan changes take effect immediately.
+- Cancellations are effective at the end of the current billing period.
+- Customers without a subscription can sign up for any plan.
+
+## Account Security
+- Accounts may be locked after multiple failed login attempts.
+- Locked accounts can be unlocked by customer support.
+- Suspended accounts require manual review.
+- Password reset links expire after 24 hours.
+- Customers should contact support if they cannot access their account.
+
+## Frequently Asked Questions
+- **How do I track my order?** Provide your order ID and we can look up the tracking information.
+- **Can I cancel my order?** Orders in "processing" status may be eligible for cancellation. Contact support.
+- **How do I change my subscription?** Contact support with your email and desired plan.
+- **What if my item arrived damaged?** Contact support with your order ID for a refund.
+- **How do I update my shipping address?** Contact support with the order ID and new address (only for processing orders).
+"""
+        await kb_service.add_document(db, shopvibe_source.id, "ShopVibe Store Policies", shopvibe_doc_content)
+
         kb_documents = [
             (
                 "Campaign Management",
@@ -493,12 +588,13 @@ Level 1: Check this documentation and FAQ. Level 2: Contact support via chat wid
             total_chunks += len(result.all())
 
         print(f"Seeded workspace: demo")
-        print(f"Seeded {len(tools)} tools")
+        print(f"Seeded {len(tools)} tools (endpoints pointing to localhost:9000)")
         print(f"Seeded 2 flows: Refund Request, Account Deletion")
         print(f"Seeded 3 skills: Billing Support, Technical Troubleshooting, New Customer Onboarding")
-        print(f"Seeded KB: {len(kb_documents)} documents, {total_chunks} chunks")
+        print(f"Seeded KB: {len(kb_documents)} PayFlow docs + ShopVibe policies, {total_chunks} chunks")
         print(f"\nWorkspace ID: demo")
         print(f"Start the server and visit: http://localhost:8000/docs")
+        print(f"ShopVibe demo store: http://localhost:9000")
 
 
 async def main():

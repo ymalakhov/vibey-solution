@@ -68,6 +68,15 @@ class ConnectionManager:
             "message": message_dict,
         })
 
+    async def notify_admins_escalation(
+        self, workspace_id: str, conversation_id: str, escalation_context: dict
+    ):
+        await self.broadcast_to_admins(workspace_id, {
+            "type": "escalation",
+            "conversation_id": conversation_id,
+            "context": escalation_context,
+        })
+
     async def notify_conversation(self, conversation_id: str, data: dict):
         """Backward-compatible wrapper matching the old notify_conversation signature."""
         await self.send_to_widget(conversation_id, data)

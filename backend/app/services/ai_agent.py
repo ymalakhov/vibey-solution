@@ -10,6 +10,8 @@ from app.config import settings
 from app.models.models import Tool, Conversation, Message, ToolExecution, Flow, ConversationFlowState, Skill
 from app.services.flow_engine import flow_engine
 from app.services.skill_engine import skill_engine
+from app.services.escalation_engine import escalation_engine
+from app.services.connection_manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +186,7 @@ class AIAgent:
         # --- Flow engine integration ---
         system_prompt = SYSTEM_PROMPT
         active_tools = tools
+        matched_skill = None
 
         # Load existing flow state
         flow_state = None
@@ -327,6 +330,54 @@ class AIAgent:
                 db.add(handoff_msg)
                 logger.info(f"[FLOW] Escalated: {handoff['summary']}")
 
+        # --- Smart escalation check ---
+        all_msgs = conversation.messages + [customer_msg, ai_msg]
+        sentiment = escalation_engine.detect_sentiment(all_msgs)
+        conversation.sentiment = sentiment
+
+        if conversation.status != "escalated":
+            # Count tool executions for this conversation
+            te_result = await db.execute(
+                select(ToolExecution).where(ToolExecution.conversation_id == conversation.id)
+            )
+            tool_exec_count = len(te_result.scalars().all())
+
+            # Check skill escalation conditions
+            skill_should_escalate = False
+            if matched_skill and ai_text:
+                skill_should_escalate = skill_engine.should_escalate(
+                    matched_skill, ai_text, {"category": conversation.category}
+                )
+
+            esc_context = escalation_engine.evaluate(
+                conversation=conversation,
+                messages=all_msgs,
+                ai_response=ai_text,
+                tool_execution_count=tool_exec_count,
+                matched_skill=matched_skill,
+                skill_should_escalate=skill_should_escalate,
+            )
+            if esc_context:
+                conversation.status = "escalated"
+                conversation.escalation_reason = esc_context["reason"]
+                conversation.escalation_context = esc_context
+                if "angry_customer" in esc_context["triggers"]:
+                    conversation.priority = "urgent"
+                if not conversation.ai_summary:
+                    conversation.ai_summary = esc_context["reason"]
+                # Save handoff notes as system message
+                handoff_msg = Message(
+                    conversation_id=conversation.id,
+                    role="system",
+                    content=f"[Smart Escalation] {esc_context['reason']}\nSuggested action: {esc_context['suggested_next_action']}",
+                )
+                db.add(handoff_msg)
+                logger.info(f"[ESCALATION] Triggered: {esc_context['triggers']} for conversation {conversation.id}")
+                # Notify admins via WebSocket
+                await manager.notify_admins_escalation(
+                    conversation.workspace_id, conversation.id, esc_context
+                )
+
         await db.commit()
 
         return {
@@ -393,6 +444,43 @@ class AIAgent:
             content=ai_text,
         )
         db.add(ai_msg)
+
+        # --- Smart escalation check after tool continuation ---
+        all_msgs_after = conversation.messages + [system_msg, ai_msg]
+        sentiment = escalation_engine.detect_sentiment(all_msgs_after)
+        conversation.sentiment = sentiment
+
+        if conversation.status != "escalated":
+            te_result = await db.execute(
+                select(ToolExecution).where(ToolExecution.conversation_id == conversation.id)
+            )
+            tool_exec_count = len(te_result.scalars().all())
+
+            esc_context = escalation_engine.evaluate(
+                conversation=conversation,
+                messages=all_msgs_after,
+                ai_response=ai_text,
+                tool_execution_count=tool_exec_count,
+            )
+            if esc_context:
+                conversation.status = "escalated"
+                conversation.escalation_reason = esc_context["reason"]
+                conversation.escalation_context = esc_context
+                if "angry_customer" in esc_context["triggers"]:
+                    conversation.priority = "urgent"
+                if not conversation.ai_summary:
+                    conversation.ai_summary = esc_context["reason"]
+                handoff_msg = Message(
+                    conversation_id=conversation.id,
+                    role="system",
+                    content=f"[Smart Escalation] {esc_context['reason']}\nSuggested action: {esc_context['suggested_next_action']}",
+                )
+                db.add(handoff_msg)
+                logger.info(f"[ESCALATION] Triggered after tool: {esc_context['triggers']} for conversation {conversation.id}")
+                await manager.notify_admins_escalation(
+                    conversation.workspace_id, conversation.id, esc_context
+                )
+
         await db.commit()
 
         return {"text": ai_text}

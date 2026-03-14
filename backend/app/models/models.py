@@ -58,6 +58,9 @@ class Conversation(Base):
     priority: Mapped[str] = mapped_column(String(10), default="medium")  # low, medium, high, urgent
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sentiment: Mapped[str | None] = mapped_column(String(20), nullable=True)  # positive/neutral/negative/angry
+    escalation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    escalation_context: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     csat_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assigned_agent: Mapped[str | None] = mapped_column(String(100), nullable=True)
     active_flow_id: Mapped[str | None] = mapped_column(ForeignKey("flows.id"), nullable=True)

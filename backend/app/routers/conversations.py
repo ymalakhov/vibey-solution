@@ -39,6 +39,42 @@ async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_
     return conv
 
 
+@router.get("/{conversation_id}/escalation-context")
+async def get_escalation_context(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    if conv.status != "escalated":
+        raise HTTPException(400, "Conversation is not escalated")
+
+    context = conv.escalation_context or {}
+
+    # Enrich with live tool execution data
+    te_result = await db.execute(
+        select(ToolExecution).where(ToolExecution.conversation_id == conversation_id)
+    )
+    executions = te_result.scalars().all()
+    if executions:
+        tool_result = await db.execute(select(Tool))
+        tool_map = {t.id: t.name for t in tool_result.scalars().all()}
+        context["tool_executions"] = [
+            {
+                "id": ex.id,
+                "tool_name": tool_map.get(ex.tool_id, ex.tool_id),
+                "status": ex.status,
+                "input_data": ex.input_data,
+                "output_data": ex.output_data,
+                "created_at": ex.created_at.isoformat() if ex.created_at else None,
+            }
+            for ex in executions
+        ]
+
+    return context
+
+
 @router.post("/{conversation_id}/resolve")
 async def resolve_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
     conv = await db.get(Conversation, conversation_id)

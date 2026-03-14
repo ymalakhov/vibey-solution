@@ -20,6 +20,18 @@ async def get_db():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # Add columns that create_all won't add to existing tables
+    alter_statements = [
+        ("conversations", "sentiment", "VARCHAR(20)"),
+        ("conversations", "escalation_reason", "TEXT"),
+        ("conversations", "escalation_context", "JSON"),
+    ]
+    async with engine.begin() as conn:
+        for table, column, col_type in alter_statements:
+            try:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+            except Exception:
+                pass  # Column already exists
     # Create FTS5 virtual table in a separate connection
     async with engine.begin() as conn:
         await conn.execute(

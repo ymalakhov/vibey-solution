@@ -60,6 +60,9 @@ class ConversationResponse(BaseModel):
     priority: str
     category: str | None
     ai_summary: str | None
+    sentiment: str | None = None
+    escalation_reason: str | None = None
+    escalation_context: dict | None = None
     csat_score: int | None
     assigned_agent: str | None
     created_at: datetime

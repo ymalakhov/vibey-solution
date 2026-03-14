@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account — ShopVibe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Scenario Banner -->
+    <div class="scenario-banner">
+        <div>Try these demo scenarios — click a chip to open the widget</div>
+        <div class="chips">
+            <span class="scenario-chip" onclick="openWidgetWithMessage('I forgot my password, my email is sarah@example.com')">Password Reset</span>
+            <span class="scenario-chip" onclick="openWidgetWithMessage('I want to downgrade from Pro to Basic, my email is sarah@example.com')">Change Plan</span>
+            <span class="scenario-chip" onclick="openWidgetWithMessage('I\'m locked out of my account, my email is mike@example.com')">Unlock Account</span>
+            <span class="scenario-chip" onclick="openWidgetWithMessage('I want to cancel my subscription, my email is emma@example.com')">Cancel Subscription</span>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
+            <a href="/" class="text-xl font-bold text-violet-600">ShopVibe</a>
+            <div class="flex gap-8">
+                <a href="/" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Home</a>
+                <a href="/products.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Products</a>
+                <a href="/orders.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Orders</a>
+                <a href="/account.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Account</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header with user switcher -->
+    <div class="max-w-6xl mx-auto px-6 pt-10 pb-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">My Account</h1>
+            <p class="text-gray-500 mt-1">Manage your profile, subscription, and security</p>
+        </div>
+        <div class="user-switcher">
+            <label class="text-sm text-gray-500 mr-2">Demo user:</label>
+            <select id="user-select" onchange="loadAccount(this.value)">
+                <option value="sarah@example.com">Sarah Johnson</option>
+                <option value="mike@example.com">Mike Chen (locked)</option>
+                <option value="emma@example.com">Emma Wilson</option>
+                <option value="john@example.com">John Davis (suspended)</option>
+                <option value="anna@example.com">Anna Kovalenko</option>
+                <option value="david@example.com">David Brown</option>
+                <option value="lisa@example.com">Lisa Taylor (no plan)</option>
+                <option value="alex@example.com">Alex Martinez</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Account Cards -->
+    <section class="max-w-6xl mx-auto px-6 pb-16 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Profile Card -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Profile</h2>
+            <div class="space-y-3">
+                <div>
+                    <div class="text-xs text-gray-400 uppercase">Name</div>
+                    <div id="acct-name" class="font-medium text-gray-900">Loading...</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-400 uppercase">Email</div>
+                    <div id="acct-email" class="text-gray-700">—</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-400 uppercase">Phone</div>
+                    <div id="acct-phone" class="text-gray-700">—</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-400 uppercase">Address</div>
+                    <div id="acct-address" class="text-gray-700">—</div>
+                </div>
+                <div id="acct-joined" class="text-xs text-gray-400 pt-2">—</div>
+            </div>
+        </div>
+
+        <!-- Subscription Card -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
+            <div class="mb-4">
+                <div id="acct-plan" class="text-2xl font-bold text-violet-600">Loading...</div>
+            </div>
+            <div class="space-y-2 mb-6">
+                <p class="text-sm text-gray-500">Manage your subscription via chat support:</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openWidgetWithMessage('I want to change my subscription plan')" class="bg-violet-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-violet-700">Change Plan</button>
+                <button onclick="openWidgetWithMessage('I want to cancel my subscription')" class="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Security Card -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Security</h2>
+            <div class="mb-4">
+                <div class="text-xs text-gray-400 uppercase mb-1">Account Status</div>
+                <span id="acct-status" class="px-2 py-1 rounded-full text-xs font-medium badge-active">active</span>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="openWidgetWithMessage('I forgot my password and need to reset it')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">Reset Password</button>
+                <button onclick="openWidgetWithMessage('My account is locked and I need help')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">Unlock Account</button>
+            </div>
+        </div>
+
+        <!-- Quick Help Card -->
+        <div class="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl border border-violet-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">Need Help?</h2>
+            <p class="text-sm text-gray-600 mb-4">Our AI support agent can help with account changes, order issues, billing questions, and more.</p>
+            <button onclick="openWidgetWithMessage('Hi, I need help with my account')" class="bg-violet-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-violet-700">Chat with Support</button>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 mt-16">
+        <div class="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between gap-8">
+            <div>
+                <span class="text-white font-bold text-lg">ShopVibe</span>
+                <p class="mt-2 text-sm">Demo e-commerce store for AI support testing.</p>
+            </div>
+            <div class="text-sm space-y-1">
+                <div class="text-white font-medium mb-2">Support</div>
+                <a href="#" onclick="openWidgetWithMessage('Hi, I need help')" class="block hover:text-white">Live Chat</a>
+            </div>
+        </div>
+        <div class="border-t border-gray-800 text-center py-4 text-xs">ShopVibe Demo &mdash; not a real store</div>
+    </footer>
+
+    <!-- Widget -->
+    <script src="http://localhost:8000/widget/widget.js" data-workspace="demo" data-api="http://localhost:8000"></script>
+    <script src="/js/app.js"></script>
+    <script>
+        // Load account for default user on page load
+        loadAccount(document.getElementById('user-select').value);
+    </script>
+</body>
+</html>
