@@ -23,6 +23,7 @@ import { GuardrailNode } from "./nodes/GuardrailNode";
 import { ConditionNode } from "./nodes/ConditionNode";
 import { ResponseNode } from "./nodes/ResponseNode";
 import { EscalationNode } from "./nodes/EscalationNode";
+import { SkillNode } from "./nodes/SkillNode";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -32,6 +33,7 @@ const nodeTypes = {
   condition: ConditionNode,
   response: ResponseNode,
   escalation: EscalationNode,
+  skill: SkillNode,
 };
 
 const defaultNodeData: Record<string, () => Record<string, any>> = {
@@ -68,6 +70,11 @@ const defaultNodeData: Record<string, () => Record<string, any>> = {
     generate_summary: false,
     priority_override: "",
     handoff_notes_template: "",
+  }),
+  skill: () => ({
+    label: "Skill",
+    skill_id: "",
+    skill_name: "",
   }),
 };
 

@@ -5,10 +5,11 @@ import { Node } from "@xyflow/react";
 interface Props {
   node: Node | null;
   tools: { id: string; name: string }[];
+  skills?: { id: string; name: string }[];
   onUpdate: (nodeId: string, data: any) => void;
 }
 
-export function NodeConfigPanel({ node, tools, onUpdate }: Props) {
+export function NodeConfigPanel({ node, tools, skills = [], onUpdate }: Props) {
   if (!node) {
     return (
       <div className="w-72 bg-white border-l border-gray-200 p-4 flex items-center justify-center">
@@ -264,6 +265,32 @@ export function NodeConfigPanel({ node, tools, onUpdate }: Props) {
               className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm h-16"
               placeholder="Customer needs help with {{order_id}}"
             />
+          </Field>
+        </>
+      )}
+
+      {/* Skill */}
+      {node.type === "skill" && (
+        <>
+          <Field label="Skill">
+            <select
+              value={(data.skill_id as string) || ""}
+              onChange={(e) => {
+                const selected = skills.find((s) => s.id === e.target.value);
+                update("skill_id", e.target.value);
+                if (selected) {
+                  onUpdate(node!.id, { ...data, skill_id: e.target.value, skill_name: selected.name });
+                }
+              }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+            >
+              <option value="">Select skill...</option>
+              {skills.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </Field>
         </>
       )}

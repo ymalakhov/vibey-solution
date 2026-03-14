@@ -9,6 +9,7 @@ import {
   GitBranch,
   MessageSquare,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 
 const nodeTypes = [
@@ -19,6 +20,7 @@ const nodeTypes = [
   { type: "condition", label: "Condition", icon: GitBranch, color: "purple", description: "Branch logic" },
   { type: "response", label: "Response", icon: MessageSquare, color: "gray", description: "Send message" },
   { type: "escalation", label: "Escalation", icon: AlertTriangle, color: "red", description: "Human handoff" },
+  { type: "skill", label: "Skill", icon: Sparkles, color: "violet", description: "Use a skill" },
 ];
 
 const colorMap: Record<string, string> = {
@@ -29,6 +31,7 @@ const colorMap: Record<string, string> = {
   purple: "bg-purple-50 border-purple-200 text-purple-700 hover:border-purple-400",
   gray: "bg-gray-50 border-gray-200 text-gray-700 hover:border-gray-400",
   red: "bg-red-50 border-red-200 text-red-700 hover:border-red-400",
+  violet: "bg-violet-50 border-violet-200 text-violet-700 hover:border-violet-400",
 };
 
 export function NodePalette() {

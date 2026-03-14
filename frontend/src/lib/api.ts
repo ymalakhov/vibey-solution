@@ -85,3 +85,22 @@ export const deleteFlow = (flowId: string) =>
 
 export const validateFlow = (flowId: string) =>
   fetchApi(`/flows/${flowId}/validate`, { method: "POST" });
+
+// Skills
+export const getSkills = (workspaceId: string) =>
+  fetchApi(`/skills?workspace_id=${workspaceId}`);
+
+export const createSkill = (workspaceId: string, data: any) =>
+  fetchApi(`/skills?workspace_id=${workspaceId}`, { method: "POST", body: JSON.stringify(data) });
+
+export const getSkill = (skillId: string) =>
+  fetchApi(`/skills/${skillId}`);
+
+export const updateSkill = (skillId: string, data: any) =>
+  fetchApi(`/skills/${skillId}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const deleteSkill = (skillId: string) =>
+  fetchApi(`/skills/${skillId}`, { method: "DELETE" });
+
+export const previewSkill = (skillId: string, data: { message: string; customer_email?: string; customer_name?: string }) =>
+  fetchApi(`/skills/${skillId}/preview`, { method: "POST", body: JSON.stringify(data) });

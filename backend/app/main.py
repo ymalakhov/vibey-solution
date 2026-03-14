@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import tools, conversations, chat, analytics, workspace, uploads, flows
+from app.routers import tools, conversations, chat, analytics, workspace, uploads, flows, skills
 
 
 @asynccontextmanager
@@ -33,6 +33,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(flows.router, prefix="/api")
+app.include_router(skills.router, prefix="/api")
 
 
 @app.get("/api/health")
