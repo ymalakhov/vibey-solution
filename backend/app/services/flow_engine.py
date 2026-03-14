@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
-from app.models.models import Flow, Conversation, ConversationFlowState, Tool
+from app.models.models import Flow, Conversation, ConversationFlowState, Tool, Skill
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +130,21 @@ class FlowEngine:
         await db.flush()
         return state
 
+    async def compile_system_prompt_async(
+        self, db: AsyncSession, flow: Flow, state: ConversationFlowState
+    ) -> str:
+        """Build system prompt, loading skill data from DB if needed."""
+        nodes = {n["id"]: n for n in (flow.nodes or [])}
+        current = nodes.get(state.current_node_id)
+        if current and current.get("type") == "skill":
+            skill_id = current.get("data", {}).get("skill_id")
+            if skill_id:
+                skill = await db.get(Skill, skill_id)
+                if skill:
+                    from app.services.skill_engine import skill_engine
+                    return skill_engine.compile_skill_prompt(skill, state.collected_data)
+        return self.compile_system_prompt(flow, state)
+
     def compile_system_prompt(self, flow: Flow, state: ConversationFlowState) -> str:
         """Build an enhanced system prompt describing the current flow step."""
         nodes = {n["id"]: n for n in (flow.nodes or [])}
@@ -213,6 +228,12 @@ class FlowEngine:
                 lines.append(f"Send this message (rephrase naturally): \"{resolved}\"")
             if instructions:
                 lines.append(f"Additional instructions: {instructions}")
+
+        elif node_type == "skill":
+            skill_name = data.get("skill_name", "")
+            lines.append(f"\nCURRENT STEP — DELEGATE TO SKILL:")
+            lines.append(f"Use the skill \"{skill_name}\" to handle the customer's request.")
+            lines.append("Follow the skill's prompt template and instructions. Be conversational and helpful.")
 
         elif node_type == "escalation":
             reason = data.get("reason", "")
@@ -318,7 +339,7 @@ class FlowEngine:
 
         node_type = current.get("type")
 
-        if node_type in ("response", "tool", "guardrail"):
+        if node_type in ("response", "tool", "guardrail", "skill"):
             self._move_to_next(state, flow)
         elif node_type == "question":
             # Wait for customer answer

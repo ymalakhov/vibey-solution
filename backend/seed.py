@@ -5,7 +5,7 @@ from sqlalchemy import select, delete, text
 
 from app.database import init_db, async_session
 from app.models.models import (
-    Workspace, Tool, Flow,
+    Workspace, Tool, Flow, Skill,
     KnowledgeSource, KnowledgeDocument, KnowledgeChunk,
 )
 from app.services.knowledge_base import kb_service
@@ -38,6 +38,7 @@ async def seed():
                     await db.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == doc.id))
                 await db.execute(delete(KnowledgeDocument).where(KnowledgeDocument.source_id == src.id))
             await db.execute(delete(KnowledgeSource).where(KnowledgeSource.workspace_id == "demo"))
+            await db.execute(delete(Skill).where(Skill.workspace_id == "demo"))
             await db.execute(delete(Flow).where(Flow.workspace_id == "demo"))
             await db.execute(delete(Tool).where(Tool.workspace_id == "demo"))
             await db.execute(delete(Workspace).where(Workspace.id == "demo"))
@@ -275,6 +276,81 @@ async def seed():
         )
         db.add(account_deletion_flow)
 
+        # Sample skills
+        skill_billing = Skill(
+            workspace_id="demo",
+            name="Billing Support",
+            description="Handles billing inquiries, invoice questions, payment issues",
+            topic="billing payment invoice charge",
+            prompt_template="""You are handling a billing-related inquiry.
+
+1. Greet the customer and ask what specific billing issue they have.
+2. If they mention a specific charge or invoice, use the lookup_customer tool to find their account details.
+3. For refund requests, collect the order ID and reason, then use the refund_payment tool.
+4. For plan changes, confirm the desired plan and use change_subscription_plan tool.
+5. Always provide a clear summary of what was done at the end.""",
+            allowed_tool_ids=[],  # Will be populated after tools are created
+            escalation_conditions=[
+                {"condition": "Customer disputes a charge over $500", "keywords": ["dispute", "fraud", "unauthorized"]},
+                {"condition": "Customer threatens legal action", "keywords": ["lawyer", "legal", "sue", "court"]},
+            ],
+            autonomy_level="semi",
+            is_published=True,
+        )
+
+        skill_technical = Skill(
+            workspace_id="demo",
+            name="Technical Troubleshooting",
+            description="Guides customers through technical issues, errors, and bugs",
+            topic="error bug crash not working technical problem",
+            prompt_template="""You are handling a technical support issue.
+
+1. Ask the customer to describe the problem in detail — what they expected vs what happened.
+2. Ask which device/browser/OS they are using.
+3. Suggest common solutions based on the issue:
+   - Clear browser cache and cookies
+   - Try incognito/private mode
+   - Update the app/browser
+   - Disable extensions
+4. If the issue persists after basic troubleshooting, collect:
+   - Steps to reproduce
+   - Any error messages
+   - Screenshots (if available)
+5. If you cannot resolve the issue, escalate with the collected information.""",
+            allowed_tool_ids=[],
+            escalation_conditions=[
+                {"condition": "Issue involves data loss or security", "keywords": ["data loss", "security", "breach", "hack"]},
+                {"condition": "Customer reports service outage", "keywords": ["outage", "down", "503", "500"]},
+            ],
+            autonomy_level="manual",
+            is_published=True,
+        )
+
+        skill_onboarding = Skill(
+            workspace_id="demo",
+            name="New Customer Onboarding",
+            description="Helps new customers get started with the platform",
+            topic="getting started new setup how to begin onboarding",
+            prompt_template="""You are helping a new customer get started with our platform.
+
+1. Welcome them warmly and ask what they're hoping to achieve.
+2. Based on their goals, recommend the most suitable plan (basic/pro/business).
+3. Walk them through key features relevant to their use case.
+4. Offer to help set up their account (password, preferences).
+5. Share helpful resources: documentation, tutorials, community forum.
+6. Ask if they have any questions before ending the conversation.""",
+            allowed_tool_ids=[],
+            escalation_conditions=[
+                {"condition": "Customer needs enterprise/custom plan", "keywords": ["enterprise", "custom", "bulk", "team"]},
+            ],
+            autonomy_level="full",
+            is_published=False,
+        )
+
+        db.add(skill_billing)
+        db.add(skill_technical)
+        db.add(skill_onboarding)
+
         await db.commit()
 
         # --- Knowledge Base seed ---
@@ -419,6 +495,7 @@ Level 1: Check this documentation and FAQ. Level 2: Contact support via chat wid
         print(f"Seeded workspace: demo")
         print(f"Seeded {len(tools)} tools")
         print(f"Seeded 2 flows: Refund Request, Account Deletion")
+        print(f"Seeded 3 skills: Billing Support, Technical Troubleshooting, New Customer Onboarding")
         print(f"Seeded KB: {len(kb_documents)} documents, {total_chunks} chunks")
         print(f"\nWorkspace ID: demo")
         print(f"Start the server and visit: http://localhost:8000/docs")

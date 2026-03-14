@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getFlow, updateFlow, validateFlow, getTools } from "@/lib/api";
+import { getFlow, updateFlow, validateFlow, getTools, getSkills } from "@/lib/api";
 import { Node, Edge } from "@xyflow/react";
 import { FlowCanvas } from "@/components/flow-builder/FlowCanvas";
 import { NodePalette } from "@/components/flow-builder/panels/NodePalette";
@@ -41,6 +41,7 @@ export default function FlowBuilderPage() {
   const router = useRouter();
   const [flow, setFlow] = useState<FlowData | null>(null);
   const [tools, setTools] = useState<{ id: string; name: string }[]>([]);
+  const [skills, setSkills] = useState<{ id: string; name: string }[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -53,6 +54,7 @@ export default function FlowBuilderPage() {
   useEffect(() => {
     loadFlow();
     loadTools();
+    loadSkills();
   }, [flowId]);
 
   async function loadFlow() {
@@ -70,6 +72,13 @@ export default function FlowBuilderPage() {
     try {
       const t = await getTools(WORKSPACE_ID);
       setTools(t.map((tool: any) => ({ id: tool.id, name: tool.name })));
+    } catch {}
+  }
+
+  async function loadSkills() {
+    try {
+      const s = await getSkills(WORKSPACE_ID);
+      setSkills(s.map((skill: any) => ({ id: skill.id, name: skill.name })));
     } catch {}
   }
 
@@ -263,6 +272,7 @@ export default function FlowBuilderPage() {
           <NodeConfigPanel
             node={selectedNode}
             tools={tools}
+            skills={skills}
             onUpdate={handleNodeDataUpdate}
           />
         )}

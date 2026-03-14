@@ -24,6 +24,7 @@ class Workspace(Base):
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="workspace")
     flows: Mapped[list["Flow"]] = relationship(back_populates="workspace")
     knowledge_sources: Mapped[list["KnowledgeSource"]] = relationship(back_populates="workspace")
+    skills: Mapped[list["Skill"]] = relationship(back_populates="workspace")
 
 
 class Tool(Base):
@@ -163,6 +164,25 @@ class KnowledgeChunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     document: Mapped["KnowledgeDocument"] = relationship(back_populates="chunks")
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    topic: Mapped[str] = mapped_column(String(200))  # problem topic this skill handles
+    prompt_template: Mapped[str] = mapped_column(Text, default="")
+    allowed_tool_ids: Mapped[list] = mapped_column(JSON, default=list)
+    escalation_conditions: Mapped[list] = mapped_column(JSON, default=list)  # [{condition, action}]
+    autonomy_level: Mapped[str] = mapped_column(String(20), default="semi")  # full, semi, manual
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    workspace: Mapped["Workspace"] = relationship(back_populates="skills")
 
 
 class ToolExecution(Base):

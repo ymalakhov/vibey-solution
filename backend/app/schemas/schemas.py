@@ -265,6 +265,72 @@ class KnowledgeSearchResult(BaseModel):
     score: float
 
 
+# --- Skill schemas ---
+
+class SkillCreate(BaseModel):
+    name: str
+    description: str | None = None
+    topic: str
+    prompt_template: str = ""
+    allowed_tool_ids: list[str] = []
+    escalation_conditions: list[dict] = []
+    autonomy_level: str = "semi"
+    is_published: bool = False
+
+
+class SkillUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    topic: str | None = None
+    prompt_template: str | None = None
+    allowed_tool_ids: list[str] | None = None
+    escalation_conditions: list[dict] | None = None
+    autonomy_level: str | None = None
+    is_published: bool | None = None
+
+
+class SkillResponse(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    description: str | None
+    topic: str
+    prompt_template: str
+    allowed_tool_ids: list[str]
+    escalation_conditions: list[dict]
+    autonomy_level: str
+    is_published: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SkillListResponse(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    description: str | None
+    topic: str
+    autonomy_level: str
+    is_published: bool
+    tool_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class SkillPreviewRequest(BaseModel):
+    message: str
+    customer_email: str | None = None
+    customer_name: str | None = None
+
+
+class SkillPreviewResponse(BaseModel):
+    response: str
+    matched_tools: list[str] = []
+
+
 # --- Workspace ---
 
 class WorkspaceCreate(BaseModel):

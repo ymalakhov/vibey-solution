@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { LayoutDashboard, MessageSquare, Wrench, BarChart3, Settings, Bot, GitBranch, BookOpen } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Wrench, BarChart3, Settings, Bot, GitBranch, BookOpen, Sparkles } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const nav = [
   { href: "/tools", label: "Tools", icon: Wrench },
   { href: "/flows", label: "Flows", icon: GitBranch },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen },
+  { href: "/skills", label: "Skills", icon: Sparkles },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

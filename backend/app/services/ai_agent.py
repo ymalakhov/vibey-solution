@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
-from app.models.models import Tool, Conversation, Message, ToolExecution, Flow, ConversationFlowState
+from app.models.models import Tool, Conversation, Message, ToolExecution, Flow, ConversationFlowState, Skill
 from app.services.flow_engine import flow_engine
+from app.services.skill_engine import skill_engine
 
 logger = logging.getLogger(__name__)
 
@@ -213,13 +214,26 @@ class AIAgent:
             if not just_matched:
                 flow_engine.advance_after_customer_message(flow_state, flow, user_message)
                 logger.info(f"Flow advanced to node: {flow_state.current_node_id}, data: {flow_state.collected_data}")
-            flow_prompt = flow_engine.compile_system_prompt(flow, flow_state)
+            flow_prompt = await flow_engine.compile_system_prompt_async(db, flow, flow_state)
             if flow_prompt:
                 system_prompt = flow_prompt
                 logger.info(f"[FLOW] Replaced system prompt for node: {flow_state.current_node_id}")
             active_tools = flow_engine.get_available_tools(flow, flow_state, tools)
         else:
-            logger.info("No active flow for this conversation")
+            # --- Skill engine integration ---
+            # Try to match a skill if no flow is active
+            matched_skill = await skill_engine.match_skill(db, conversation.workspace_id, user_message)
+            if matched_skill:
+                logger.info(f"Skill matched: '{matched_skill.name}'")
+                context = {}
+                if conversation.customer_email:
+                    context["customer_email"] = conversation.customer_email
+                if conversation.customer_name:
+                    context["customer_name"] = conversation.customer_name
+                system_prompt = skill_engine.compile_skill_prompt(matched_skill, context)
+                active_tools = skill_engine.get_allowed_tools(matched_skill, tools)
+            else:
+                logger.info("No active flow or skill for this conversation")
 
         # Inject KB context into system prompt
         system_prompt = await self._build_system_prompt(
