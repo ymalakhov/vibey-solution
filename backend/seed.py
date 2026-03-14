@@ -1,10 +1,14 @@
-"""Seed script to create demo workspace with sample tools and flows."""
+"""Seed script to create demo workspace with sample tools, flows, and KB."""
 import asyncio
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, text
 
 from app.database import init_db, async_session
-from app.models.models import Workspace, Tool, Flow
+from app.models.models import (
+    Workspace, Tool, Flow,
+    KnowledgeSource, KnowledgeDocument, KnowledgeChunk,
+)
+from app.services.knowledge_base import kb_service
 
 
 async def seed():
@@ -14,6 +18,26 @@ async def seed():
         # Remove existing demo workspace and its data if present
         existing = await db.execute(select(Workspace).where(Workspace.id == "demo"))
         if existing.scalar_one_or_none():
+            # Clean up KB data (chunks FTS, chunks, docs, sources)
+            kb_sources = await db.execute(
+                select(KnowledgeSource).where(KnowledgeSource.workspace_id == "demo")
+            )
+            for src in kb_sources.scalars().all():
+                kb_docs = await db.execute(
+                    select(KnowledgeDocument).where(KnowledgeDocument.source_id == src.id)
+                )
+                for doc in kb_docs.scalars().all():
+                    chunks = await db.execute(
+                        select(KnowledgeChunk).where(KnowledgeChunk.document_id == doc.id)
+                    )
+                    for chunk in chunks.scalars().all():
+                        await db.execute(
+                            text("DELETE FROM knowledge_chunks_fts WHERE chunk_id = :cid"),
+                            {"cid": chunk.id},
+                        )
+                    await db.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == doc.id))
+                await db.execute(delete(KnowledgeDocument).where(KnowledgeDocument.source_id == src.id))
+            await db.execute(delete(KnowledgeSource).where(KnowledgeSource.workspace_id == "demo"))
             await db.execute(delete(Flow).where(Flow.workspace_id == "demo"))
             await db.execute(delete(Tool).where(Tool.workspace_id == "demo"))
             await db.execute(delete(Workspace).where(Workspace.id == "demo"))
@@ -252,12 +276,159 @@ async def seed():
         db.add(account_deletion_flow)
 
         await db.commit()
+
+        # --- Knowledge Base seed ---
+        kb_source = await kb_service.create_source(
+            db, "demo", "PayFlow Admin Docs", "file", {}
+        )
+
+        kb_documents = [
+            (
+                "Campaign Management",
+                """# Campaign Management
+
+## Abandoned Cart Campaigns
+PayFlow's abandoned cart campaigns automatically send reminders to customers who left items in their cart. Configure timing (1hr, 4hr, 24hr delays), set discount incentives (percentage or fixed), and customize email templates. The campaign dashboard shows conversion rate, recovered revenue, and email open rates. Common issue: if conversion rate shows 0%, verify the tracking pixel is installed on the checkout confirmation page.
+
+## Back-in-Stock Notifications
+Customers can subscribe to back-in-stock alerts for out-of-stock products. When inventory is updated via the API or admin panel, notifications are sent automatically. Supports email and SMS channels. Maximum 10,000 subscribers per product.
+
+## Price Drop Alerts
+Automated notifications when product prices decrease. Customers opt in from the product page. Configure minimum discount threshold (default 10%) to avoid sending alerts for trivial changes.
+
+## Campaign Analytics
+View campaign performance in Analytics > Campaigns. Metrics include: send rate, open rate, click rate, conversion rate, revenue attributed. Filter by date range, campaign type, and status. Export reports as CSV.""",
+            ),
+            (
+                "Payment Processing",
+                """# Payment Processing
+
+## Stripe Connect Integration
+PayFlow uses Stripe Connect for payment processing. Each merchant has a connected Stripe account. Setup: Settings > Payments > Connect Stripe Account. The OAuth flow handles account linking. Test mode uses Stripe test keys (prefix `sk_test_`).
+
+## Handling Disputes
+When a customer files a chargeback, PayFlow creates a dispute record. View disputes in Payments > Disputes. Required actions: upload evidence within 7 days, include shipping proof and communication logs. Auto-response can be enabled in Settings > Payments > Dispute Automation.
+
+## Payout Schedule
+Merchants receive payouts on a configurable schedule: daily, weekly, or monthly. Minimum payout threshold: $25. View payout history in Payments > Payouts. Failed payouts usually indicate an invalid bank account — update in Settings > Banking.
+
+## Fraud Detection
+Built-in fraud scoring uses Stripe Radar. Transactions scoring above 75 are flagged for manual review. Configure thresholds in Settings > Payments > Fraud Rules. Block specific countries or require 3D Secure for high-risk orders.""",
+            ),
+            (
+                "Customer & Subscriber Management",
+                """# Customer & Subscriber Management
+
+## Customer Profiles
+Each customer has a unified profile showing: order history, subscription status, support tickets, campaign interactions, and payment methods. Access via Customers > Search. Merge duplicate profiles with the Merge tool (requires admin role).
+
+## Customer Segments
+Create dynamic segments based on: purchase history, subscription plan, location, engagement score, or custom attributes. Segments auto-update as customer data changes. Use segments to target campaigns and flows. Maximum 50 segments per workspace.
+
+## GDPR Compliance
+PayFlow provides GDPR tools: data export (customer can request their data), right to deletion (removes PII within 30 days), consent management (tracks opt-in/opt-out), and data processing records. Access GDPR tools in Settings > Privacy. Deletion requests appear in a queue for admin review.""",
+            ),
+            (
+                "Journey Automation",
+                """# Journey Automation
+
+## Visual Flow Builder
+Build customer journeys using the drag-and-drop ReactFlow editor. Available node types: Trigger (entry point), Question (collect data), Condition (branch logic), Tool (execute action), Response (send message), Guardrail (validation), and Escalation (handoff to agent).
+
+## Triggers
+Flows start with trigger nodes matching customer intents. Configure trigger keywords and the AI matches incoming messages. Priority setting determines which flow activates when multiple match. Test triggers in the Flow Editor preview panel.
+
+## Actions & Tools
+Tool nodes execute external API calls (refunds, plan changes, lookups). Configure input mapping using variable references like {{order_id}}. Tools with requires_approval=true pause the flow for agent review. Results are stored in flow state.
+
+## Flow Analytics
+Track flow performance in Analytics > Flows. Metrics: trigger rate, completion rate, average steps to resolution, escalation rate, drop-off points. Identify bottlenecks where customers abandon flows.""",
+            ),
+            (
+                "Analytics Dashboards",
+                """# Analytics Dashboards
+
+## Revenue Dashboard
+Overview of payment metrics: total revenue, average order value, refund rate, and MRR (monthly recurring revenue). Filter by date range, product category, or customer segment. Compare periods with the date comparison toggle.
+
+## Campaign Dashboard
+Campaign performance overview: total sends, delivery rate, open rate, click rate, conversion rate. Drill down into individual campaigns. A/B test results shown side-by-side. Export data for external analysis.
+
+## Payment Analytics
+Detailed payment metrics: successful transactions, failure rate by payment method, dispute rate, average processing time. Geographic breakdown of payment methods. Alert when failure rate exceeds 5%.
+
+## Custom Reports
+Build custom reports by selecting metrics, dimensions, and filters. Save reports for quick access. Schedule automated email delivery (daily, weekly, monthly). Share reports with team members via link.""",
+            ),
+            (
+                "Settings & Configuration",
+                """# Settings & Configuration
+
+## User Roles & Permissions
+Three role levels: Admin (full access), Agent (chat and customer management), Viewer (read-only analytics). Manage users in Settings > Team. Invite by email with role assignment. SSO available on Business plan.
+
+## Billing & Plans
+Three plans: Starter ($29/mo, 1000 customers), Pro ($79/mo, 10,000 customers), Business ($199/mo, unlimited + SSO + API). Upgrade/downgrade in Settings > Billing. Changes take effect at next billing cycle. Annual billing saves 20%.
+
+## API Keys
+Generate API keys in Settings > Developers. Keys have scoped permissions: read-only, write, or admin. Rate limit: 100 requests/minute on Starter, 500 on Pro, 2000 on Business. Include key in Authorization header as Bearer token.
+
+## Workspace Configuration
+Configure workspace name, domain, timezone, default language, and notification preferences. Widget customization: brand color, position, greeting message, quick actions. All changes auto-save.""",
+            ),
+            (
+                "Authentication & Onboarding",
+                """# Authentication & Onboarding
+
+## OAuth Integration
+PayFlow supports Google and GitHub OAuth for user authentication. Configure OAuth apps in Settings > Authentication. Required fields: Client ID, Client Secret, Redirect URI. Callback URL format: `https://app.payflow.io/auth/callback/{provider}`.
+
+## Registration Flow
+New users: email verification > workspace creation > Stripe Connect setup > import products > configure first campaign. The onboarding wizard guides through each step. Skip steps by clicking "Set up later" — incomplete steps show as reminders in the dashboard.
+
+## Onboarding Wizard
+Step-by-step setup: 1) Workspace details, 2) Connect payment processor, 3) Import product catalog, 4) Design first campaign, 5) Install chat widget. Progress saved automatically. Resume from Settings > Setup Wizard. Typical completion time: 15 minutes.""",
+            ),
+            (
+                "Troubleshooting Guide",
+                """# Troubleshooting Guide
+
+## Common Errors
+- **"Payment processor not connected"**: Go to Settings > Payments and complete Stripe Connect OAuth flow
+- **"Campaign not sending"**: Check that the campaign is set to Active status and has valid recipient segments
+- **"Widget not appearing"**: Verify the embed script is placed before the closing </body> tag and the domain matches workspace settings
+- **"API rate limit exceeded"**: Reduce request frequency or upgrade plan. Current limits shown in Settings > Developers
+- **"Abandoned cart conversion rate showing 0%"**: Install the tracking pixel on the order confirmation page. Code snippet available in Campaigns > Settings > Tracking
+
+## Performance Issues
+Slow dashboard loading: clear browser cache, check if date range is too large (max 90 days recommended). API timeouts: reduce batch size for bulk operations. Webhook failures: verify endpoint URL is HTTPS and responds within 5 seconds.
+
+## Escalation Procedures
+Level 1: Check this documentation and FAQ. Level 2: Contact support via chat widget or email support@payflow.io. Level 3: For billing disputes or account issues, email billing@payflow.io. Level 4: For security incidents, email security@payflow.io with subject "URGENT".""",
+            ),
+        ]
+
+        total_chunks = 0
+        for title, content in kb_documents:
+            doc = await kb_service.add_document(db, kb_source.id, title, content)
+            result = await db.execute(
+                select(KnowledgeChunk).where(KnowledgeChunk.document_id == doc.id)
+            )
+            total_chunks += len(result.all())
+
         print(f"Seeded workspace: demo")
         print(f"Seeded {len(tools)} tools")
         print(f"Seeded 2 flows: Refund Request, Account Deletion")
+        print(f"Seeded KB: {len(kb_documents)} documents, {total_chunks} chunks")
         print(f"\nWorkspace ID: demo")
         print(f"Start the server and visit: http://localhost:8000/docs")
 
 
+async def main():
+    await seed()
+    from app.database import engine
+    await engine.dispose()
+
+
 if __name__ == "__main__":
-    asyncio.run(seed())
+    asyncio.run(main())

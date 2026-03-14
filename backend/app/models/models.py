@@ -23,6 +23,7 @@ class Workspace(Base):
     tools: Mapped[list["Tool"]] = relationship(back_populates="workspace")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="workspace")
     flows: Mapped[list["Flow"]] = relationship(back_populates="workspace")
+    knowledge_sources: Mapped[list["KnowledgeSource"]] = relationship(back_populates="workspace")
 
 
 class Tool(Base):
@@ -115,6 +116,53 @@ class ConversationFlowState(Base):
 
     conversation: Mapped["Conversation"] = relationship(back_populates="flow_state")
     flow: Mapped["Flow"] = relationship()
+
+
+class KnowledgeSource(Base):
+    __tablename__ = "knowledge_sources"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    source_type: Mapped[str] = mapped_column(String(20))  # notion, confluence, file
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    document_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    workspace: Mapped["Workspace"] = relationship(back_populates="knowledge_sources")
+    documents: Mapped[list["KnowledgeDocument"]] = relationship(back_populates="source", cascade="all, delete-orphan")
+
+
+class KnowledgeDocument(Base):
+    __tablename__ = "knowledge_documents"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    source_id: Mapped[str] = mapped_column(ForeignKey("knowledge_sources.id"))
+    title: Mapped[str] = mapped_column(String(500))
+    content: Mapped[str] = mapped_column(Text)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    source: Mapped["KnowledgeSource"] = relationship(back_populates="documents")
+    chunks: Mapped[list["KnowledgeChunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    document_id: Mapped[str] = mapped_column(ForeignKey("knowledge_documents.id"))
+    content: Mapped[str] = mapped_column(Text)
+    heading_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    chunk_index: Mapped[int] = mapped_column(Integer, default=0)
+    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    document: Mapped["KnowledgeDocument"] = relationship(back_populates="chunks")
 
 
 class ToolExecution(Base):

@@ -35,6 +35,30 @@ class AIAgent:
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
+    async def _build_system_prompt(
+        self, db, workspace_id: str, user_message: str, base_prompt: str
+    ) -> str:
+        """Append KB context to the system prompt if relevant chunks are found."""
+        try:
+            from app.services.knowledge_base import kb_service
+
+            results = await kb_service.search(db, workspace_id, user_message, limit=5, max_tokens=3000)
+            if not results:
+                return base_prompt
+
+            kb_section = "\n\n## Knowledge Base Context\nUse the following documentation to answer the customer's question:\n\n"
+            for r in results:
+                heading = f"[{r['document_title']}"
+                if r.get("heading_path"):
+                    heading += f" > {r['heading_path']}"
+                heading += "]"
+                kb_section += f"{heading}\n{r['content']}\n\n"
+
+            return base_prompt + kb_section
+        except Exception as e:
+            logger.warning(f"KB context injection failed: {e}")
+            return base_prompt
+
     def _db_tools_to_claude_format(self, tools: list[Tool]) -> list[dict]:
         """Convert DB tool definitions to Claude API tool format."""
         claude_tools = []
@@ -197,6 +221,11 @@ class AIAgent:
         else:
             logger.info("No active flow for this conversation")
 
+        # Inject KB context into system prompt
+        system_prompt = await self._build_system_prompt(
+            db, conversation.workspace_id, user_message, system_prompt
+        )
+
         # Build message history
         messages = self._build_messages(conversation.messages + [customer_msg])
         claude_tools = self._db_tools_to_claude_format(active_tools)
@@ -318,10 +347,20 @@ class AIAgent:
         messages = self._build_messages(all_messages)
         claude_tools = self._db_tools_to_claude_format(tools)
 
+        # Find last customer message for KB search context
+        last_customer_msg = ""
+        for msg in reversed(all_messages):
+            if msg.role == "customer":
+                last_customer_msg = msg.content
+                break
+        system_prompt = await self._build_system_prompt(
+            db, conversation.workspace_id, last_customer_msg, SYSTEM_PROMPT
+        )
+
         kwargs = {
             "model": settings.AI_MODEL,
             "max_tokens": 1024,
-            "system": SYSTEM_PROMPT,
+            "system": system_prompt,
             "messages": messages,
         }
         if claude_tools:

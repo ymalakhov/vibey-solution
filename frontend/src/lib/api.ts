@@ -85,3 +85,39 @@ export const deleteFlow = (flowId: string) =>
 
 export const validateFlow = (flowId: string) =>
   fetchApi(`/flows/${flowId}/validate`, { method: "POST" });
+
+// Knowledge Base
+export const getKnowledgeSources = (workspaceId: string) =>
+  fetchApi(`/knowledge/sources?workspace_id=${workspaceId}`);
+
+export const createKnowledgeSource = (workspaceId: string, data: { name: string; source_type: string; config?: Record<string, unknown> }) =>
+  fetchApi(`/knowledge/sources?workspace_id=${workspaceId}`, { method: "POST", body: JSON.stringify(data) });
+
+export const deleteKnowledgeSource = (sourceId: string) =>
+  fetchApi(`/knowledge/sources/${sourceId}`, { method: "DELETE" });
+
+export const syncKnowledgeSource = (sourceId: string) =>
+  fetchApi(`/knowledge/sources/${sourceId}/sync`, { method: "POST" });
+
+export const getKnowledgeDocuments = (sourceId: string) =>
+  fetchApi(`/knowledge/sources/${sourceId}/documents`);
+
+export const addKnowledgeDocument = (sourceId: string, data: { title: string; content: string }) =>
+  fetchApi(`/knowledge/sources/${sourceId}/documents`, { method: "POST", body: JSON.stringify(data) });
+
+export const uploadKnowledgeDocument = async (sourceId: string, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`/api/knowledge/sources/${sourceId}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+};
+
+export const deleteKnowledgeDocument = (documentId: string) =>
+  fetchApi(`/knowledge/documents/${documentId}`, { method: "DELETE" });
+
+export const searchKnowledge = (workspaceId: string, query: string) =>
+  fetchApi(`/knowledge/search?workspace_id=${workspaceId}&q=${encodeURIComponent(query)}`);

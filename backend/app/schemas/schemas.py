@@ -200,6 +200,71 @@ class FlowValidationResult(BaseModel):
     warnings: list[str] = []
 
 
+# --- Knowledge Base schemas ---
+
+class KnowledgeSourceCreate(BaseModel):
+    name: str
+    source_type: str  # notion, confluence, file
+    config: dict = {}
+
+
+class KnowledgeSourceResponse(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    source_type: str
+    config: dict
+    is_active: bool
+    last_synced_at: datetime | None
+    document_count: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class KnowledgeDocumentCreate(BaseModel):
+    title: str
+    content: str
+    metadata: dict = {}
+
+
+class KnowledgeDocumentResponse(BaseModel):
+    id: str
+    source_id: str
+    title: str
+    content: str
+    external_id: str | None
+    metadata: dict = {}
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_model(cls, doc):
+        return cls(
+            id=doc.id,
+            source_id=doc.source_id,
+            title=doc.title,
+            content=doc.content,
+            external_id=doc.external_id,
+            metadata=doc.metadata_,
+            created_at=doc.created_at,
+            updated_at=doc.updated_at,
+        )
+
+
+class KnowledgeSearchResult(BaseModel):
+    chunk_id: str
+    content: str
+    heading_path: str | None
+    document_title: str
+    source_name: str
+    score: float
+
+
 # --- Workspace ---
 
 class WorkspaceCreate(BaseModel):
