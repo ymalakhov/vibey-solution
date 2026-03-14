@@ -22,6 +22,7 @@ class Workspace(Base):
 
     tools: Mapped[list["Tool"]] = relationship(back_populates="workspace")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="workspace")
+    flows: Mapped[list["Flow"]] = relationship(back_populates="workspace")
 
 
 class Tool(Base):
@@ -57,11 +58,13 @@ class Conversation(Base):
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     csat_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assigned_agent: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    active_flow_id: Mapped[str | None] = mapped_column(ForeignKey("flows.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     workspace: Mapped["Workspace"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", order_by="Message.created_at")
+    flow_state: Mapped["ConversationFlowState | None"] = relationship(back_populates="conversation", uselist=False)
 
 
 class Message(Base):
@@ -77,6 +80,41 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+
+
+class Flow(Base):
+    __tablename__ = "flows"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trigger_intents: Mapped[list] = mapped_column(JSON, default=list)
+    nodes: Mapped[list] = mapped_column(JSON, default=list)
+    edges: Mapped[list] = mapped_column(JSON, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    workspace: Mapped["Workspace"] = relationship(back_populates="flows")
+
+
+class ConversationFlowState(Base):
+    __tablename__ = "conversation_flow_states"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=gen_id)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), unique=True)
+    flow_id: Mapped[str] = mapped_column(ForeignKey("flows.id"))
+    current_node_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    completed_nodes: Mapped[list] = mapped_column(JSON, default=list)
+    collected_data: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, completed, escalated
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="flow_state")
+    flow: Mapped["Flow"] = relationship()
 
 
 class ToolExecution(Base):

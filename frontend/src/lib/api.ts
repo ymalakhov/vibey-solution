@@ -66,3 +66,22 @@ export const sendAgentReply = (workspaceId: string, conversationId: string, cont
 // Analytics
 export const getAnalytics = (workspaceId: string) =>
   fetchApi(`/analytics/?workspace_id=${workspaceId}`);
+
+// Flows
+export const getFlows = (workspaceId: string) =>
+  fetchApi(`/flows/?workspace_id=${workspaceId}`);
+
+export const createFlow = (workspaceId: string, data: any) =>
+  fetchApi(`/flows/?workspace_id=${workspaceId}`, { method: "POST", body: JSON.stringify(data) });
+
+export const getFlow = (flowId: string) =>
+  fetchApi(`/flows/${flowId}`);
+
+export const updateFlow = (flowId: string, data: any) =>
+  fetchApi(`/flows/${flowId}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const deleteFlow = (flowId: string) =>
+  fetchApi(`/flows/${flowId}`, { method: "DELETE" });
+
+export const validateFlow = (flowId: string) =>
+  fetchApi(`/flows/${flowId}/validate`, { method: "POST" });

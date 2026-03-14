@@ -324,6 +324,9 @@ export default function ChatsPage() {
                 <p className="text-xs text-gray-500">
                   {selected.category} &middot; {selected.priority} priority
                 </p>
+                {selected.ai_summary && (
+                  <p className="text-xs text-orange-600 mt-1">{selected.ai_summary}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 {selected.status !== "resolved" && (
@@ -390,6 +393,14 @@ export default function ChatsPage() {
                     <div className="flex justify-center">
                       <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
                         Tool executed successfully
+                      </div>
+                    </div>
+                  )}
+                  {msg.role === "system" && !msg.tool_result && (
+                    <div className="flex justify-center">
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 max-w-lg w-full">
+                        <p className="text-xs font-semibold text-orange-800 mb-1">Handoff Notes</p>
+                        <p className="text-sm text-orange-700 whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     </div>
                   )}

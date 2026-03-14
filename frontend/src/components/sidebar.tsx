@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { LayoutDashboard, MessageSquare, Wrench, BarChart3, Settings, Bot } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Wrench, BarChart3, Settings, Bot, GitBranch } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/chats", label: "Chats", icon: MessageSquare },
   { href: "/tools", label: "Tools", icon: Wrench },
+  { href: "/flows", label: "Flows", icon: GitBranch },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -31,7 +32,7 @@ export function Sidebar() {
             href={href}
             className={clsx(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              pathname === href
+              pathname === href || pathname.startsWith(href + "/")
                 ? "bg-indigo-50 text-indigo-700"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             )}

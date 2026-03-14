@@ -142,6 +142,64 @@ class AnalyticsResponse(BaseModel):
     category_breakdown: list[dict]
 
 
+# --- Flow schemas ---
+
+class FlowCreate(BaseModel):
+    name: str
+    description: str | None = None
+    trigger_intents: list[str] = []
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    is_active: bool = True
+    priority: int = 0
+
+
+class FlowUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    trigger_intents: list[str] | None = None
+    nodes: list[dict] | None = None
+    edges: list[dict] | None = None
+    is_active: bool | None = None
+    priority: int | None = None
+
+
+class FlowResponse(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    description: str | None
+    trigger_intents: list[str]
+    nodes: list[dict]
+    edges: list[dict]
+    is_active: bool
+    priority: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FlowListResponse(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    description: str | None
+    trigger_intents: list[str]
+    is_active: bool
+    priority: int
+    node_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class FlowValidationResult(BaseModel):
+    valid: bool
+    errors: list[str] = []
+    warnings: list[str] = []
+
+
 # --- Workspace ---
 
 class WorkspaceCreate(BaseModel):
