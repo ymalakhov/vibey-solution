@@ -457,11 +457,10 @@ export default function ChatsPage() {
                       </div>
                     )}
                     {msg.role === "system" && !msg.tool_result && (
-                      <div className="flex justify-center">
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 max-w-lg w-full">
-                          <p className="text-xs font-semibold text-orange-800 mb-1">Handoff Notes</p>
-                          <p className="text-sm text-orange-700 whitespace-pre-wrap">{msg.content}</p>
-                        </div>
+                      <div className="flex items-center gap-3 py-1">
+                        <div className="flex-1 border-t border-red-200" />
+                        <span className="text-[11px] text-red-400 font-medium whitespace-nowrap">Escalated to human agent</span>
+                        <div className="flex-1 border-t border-red-200" />
                       </div>
                     )}
                   </div>
@@ -611,6 +610,20 @@ export default function ChatsPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Handoff notes from system messages */}
+              {selected?.messages?.some((m: Message) => m.role === "system" && !m.tool_result) && (
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Handoff Notes</p>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-1">
+                    {selected.messages
+                      .filter((m: Message) => m.role === "system" && !m.tool_result)
+                      .map((m: Message) => (
+                        <p key={m.id} className="text-xs text-orange-800 whitespace-pre-wrap">{m.content}</p>
+                      ))}
                   </div>
                 </div>
               )}
