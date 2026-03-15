@@ -25,6 +25,8 @@ async def init_db():
         ("conversations", "sentiment", "VARCHAR(20)"),
         ("conversations", "escalation_reason", "TEXT"),
         ("conversations", "escalation_context", "JSON"),
+        ("tools", "auth_type", "VARCHAR(20) DEFAULT 'none'"),
+        ("tools", "auth_config", "JSON DEFAULT '{}'"),
     ]
     async with engine.begin() as conn:
         for table, column, col_type in alter_statements:

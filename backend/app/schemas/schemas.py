@@ -17,6 +17,8 @@ class ToolCreate(BaseModel):
     endpoint: str
     method: str = "POST"
     headers: dict = {}
+    auth_type: str = "none"
+    auth_config: dict = {}
     parameters: list[ToolParameter] = []
     requires_approval: bool = True
 
@@ -27,6 +29,8 @@ class ToolUpdate(BaseModel):
     endpoint: str | None = None
     method: str | None = None
     headers: dict | None = None
+    auth_type: str | None = None
+    auth_config: dict | None = None
     parameters: list[ToolParameter] | None = None
     requires_approval: bool | None = None
     is_active: bool | None = None
@@ -39,6 +43,8 @@ class ToolResponse(BaseModel):
     endpoint: str
     method: str
     headers: dict
+    auth_type: str
+    auth_config: dict
     parameters: list
     requires_approval: bool
     is_active: bool
