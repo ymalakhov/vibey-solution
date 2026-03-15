@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getTools, createTool, deleteTool, testTool } from "@/lib/api";
-import { Plus, Trash2, Play, Wrench, Shield, Zap } from "lucide-react";
+import { Plus, Trash2, Play, Wrench, Shield, Zap, KeyRound } from "lucide-react";
 
 const WORKSPACE_ID = "demo";
 
@@ -13,6 +13,20 @@ interface ToolParam {
   required: boolean;
 }
 
+interface AuthConfig {
+  token?: string;
+  key_name?: string;
+  key_value?: string;
+  key_location?: string;
+  username?: string;
+  password?: string;
+  client_id?: string;
+  client_secret?: string;
+  auth_url?: string;
+  token_url?: string;
+  scopes?: string;
+}
+
 interface Tool {
   id: string;
   name: string;
@@ -20,6 +34,8 @@ interface Tool {
   endpoint: string;
   method: string;
   headers: Record<string, string>;
+  auth_type: string;
+  auth_config: AuthConfig;
   parameters: ToolParam[];
   requires_approval: boolean;
   is_active: boolean;
@@ -27,12 +43,30 @@ interface Tool {
   success_count: number;
 }
 
+const AUTH_TYPES = [
+  { value: "none", label: "No Auth" },
+  { value: "bearer", label: "Bearer Token" },
+  { value: "api_key", label: "API Key" },
+  { value: "oauth2", label: "OAuth 2.0" },
+  { value: "basic", label: "Basic Auth" },
+];
+
+const AUTH_LABELS: Record<string, string> = {
+  none: "No Auth",
+  bearer: "Bearer",
+  api_key: "API Key",
+  oauth2: "OAuth 2.0",
+  basic: "Basic",
+};
+
 const emptyForm = {
   name: "",
   description: "",
   endpoint: "",
   method: "POST",
   headers: {} as Record<string, string>,
+  auth_type: "none",
+  auth_config: {} as AuthConfig,
   parameters: [] as ToolParam[],
   requires_approval: true,
 };
@@ -159,6 +193,190 @@ export default function ToolsPage() {
             />
           </div>
 
+          {/* Authentication */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Authentication</label>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+              <div className="flex gap-2 mb-3">
+                {AUTH_TYPES.map((at) => (
+                  <button
+                    key={at.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, auth_type: at.value, auth_config: {} })}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                      form.auth_type === at.value
+                        ? "bg-indigo-600 text-white border-indigo-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:border-indigo-300"
+                    }`}
+                  >
+                    {at.label}
+                  </button>
+                ))}
+              </div>
+
+              {form.auth_type === "bearer" && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Token</label>
+                  <input
+                    value={form.auth_config.token || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, auth_config: { ...form.auth_config, token: e.target.value } })
+                    }
+                    type="password"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                    placeholder="eyJhbGciOiJIUzI1NiIs..."
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Sent as Authorization: Bearer &lt;token&gt;</p>
+                </div>
+              )}
+
+              {form.auth_type === "api_key" && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Key Name</label>
+                      <input
+                        value={form.auth_config.key_name || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, key_name: e.target.value } })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="X-API-Key"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Key Value</label>
+                      <input
+                        value={form.auth_config.key_value || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, key_value: e.target.value } })
+                        }
+                        type="password"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                        placeholder="sk-..."
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Add to</label>
+                    <select
+                      value={form.auth_config.key_location || "header"}
+                      onChange={(e) =>
+                        setForm({ ...form, auth_config: { ...form.auth_config, key_location: e.target.value } })
+                      }
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="header">Header</option>
+                      <option value="query">Query Parameter</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {form.auth_type === "oauth2" && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Client ID</label>
+                      <input
+                        value={form.auth_config.client_id || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, client_id: e.target.value } })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                        placeholder="your-client-id"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Client Secret</label>
+                      <input
+                        value={form.auth_config.client_secret || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, client_secret: e.target.value } })
+                        }
+                        type="password"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                        placeholder="your-client-secret"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Authorization URL</label>
+                      <input
+                        value={form.auth_config.auth_url || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, auth_url: e.target.value } })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="https://auth.example.com/authorize"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Token URL</label>
+                      <input
+                        value={form.auth_config.token_url || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, auth_config: { ...form.auth_config, token_url: e.target.value } })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="https://auth.example.com/token"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Scopes</label>
+                    <input
+                      value={form.auth_config.scopes || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, auth_config: { ...form.auth_config, scopes: e.target.value } })
+                      }
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="read write admin"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                      <KeyRound className="w-3 h-3" /> Grant type: Client Credentials
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {form.auth_type === "basic" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Username</label>
+                    <input
+                      value={form.auth_config.username || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, auth_config: { ...form.auth_config, username: e.target.value } })
+                      }
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Password</label>
+                    <input
+                      value={form.auth_config.password || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, auth_config: { ...form.auth_config, password: e.target.value } })
+                      }
+                      type="password"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="password"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {form.auth_type === "none" && (
+                <p className="text-xs text-gray-400">No authentication will be sent with requests.</p>
+              )}
+            </div>
+          </div>
+
           {/* Parameters */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -240,6 +458,11 @@ export default function ToolsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {tool.auth_type && tool.auth_type !== "none" && (
+                  <span className="flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded">
+                    <KeyRound className="w-3 h-3" /> {AUTH_LABELS[tool.auth_type] || tool.auth_type}
+                  </span>
+                )}
                 {tool.requires_approval ? (
                   <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
                     <Shield className="w-3 h-3" /> Approval

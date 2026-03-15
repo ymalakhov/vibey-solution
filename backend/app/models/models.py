@@ -37,6 +37,8 @@ class Tool(Base):
     endpoint: Mapped[str] = mapped_column(String(500))
     method: Mapped[str] = mapped_column(String(10), default="POST")
     headers: Mapped[dict] = mapped_column(JSON, default=dict)
+    auth_type: Mapped[str] = mapped_column(String(20), default="none")  # none, bearer, api_key, oauth2, basic
+    auth_config: Mapped[dict] = mapped_column(JSON, default=dict)
     parameters: Mapped[list] = mapped_column(JSON, default=list)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

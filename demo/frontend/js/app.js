@@ -27,6 +27,22 @@ function logout() {
 }
 
 // ---------------------------------------------------------------------------
+// Widget loader — injects widget script with logged-in user's email
+// ---------------------------------------------------------------------------
+
+(function () {
+    var user = getLoggedInUser();
+    var s = document.createElement('script');
+    s.src = 'http://localhost:8000/widget/widget.js';
+    s.setAttribute('data-workspace', 'demo');
+    s.setAttribute('data-api', 'http://localhost:8000');
+    if (user && user.email) {
+        s.setAttribute('data-customer-email', user.email);
+    }
+    document.head.appendChild(s);
+})();
+
+// ---------------------------------------------------------------------------
 // Nav setup (highlighting + user section)
 // ---------------------------------------------------------------------------
 
