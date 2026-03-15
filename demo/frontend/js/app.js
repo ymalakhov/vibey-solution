@@ -1,13 +1,57 @@
-/* ShopVibe Demo — navigation highlighting & widget helpers */
+/* ShopVibe Demo — navigation highlighting, auth helpers & widget helpers */
+
+// ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+
+function getLoggedInUser() {
+    try {
+        var raw = localStorage.getItem('shopvibe_user');
+        if (!raw) return null;
+        var user = JSON.parse(raw);
+        return (user && user.email) ? user : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function requireAuth() {
+    if (!getLoggedInUser()) {
+        window.location.href = '/login.html';
+    }
+}
+
+function logout() {
+    localStorage.removeItem('shopvibe_user');
+    window.location.href = '/login.html';
+}
+
+// ---------------------------------------------------------------------------
+// Nav setup (highlighting + user section)
+// ---------------------------------------------------------------------------
 
 (function () {
     // Highlight current nav link
-    const path = window.location.pathname;
+    var path = window.location.pathname;
     document.querySelectorAll('nav a').forEach(function (a) {
         var href = a.getAttribute('href');
         if (href === '/' && path === '/') a.classList.add('active');
         else if (href !== '/' && path.startsWith(href)) a.classList.add('active');
     });
+
+    // Populate #nav-user
+    var navUser = document.getElementById('nav-user');
+    if (navUser) {
+        var user = getLoggedInUser();
+        if (user) {
+            navUser.innerHTML =
+                '<span class="text-sm text-gray-700 font-medium">' + user.name + '</span>' +
+                '<a href="#" onclick="logout(); return false;" class="text-sm text-violet-600 hover:text-violet-800 font-medium">Log out</a>';
+        } else {
+            navUser.innerHTML =
+                '<a href="/login.html" class="text-sm text-violet-600 hover:text-violet-800 font-medium">Sign In</a>';
+        }
+    }
 })();
 
 /**

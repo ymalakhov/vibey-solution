@@ -239,9 +239,46 @@ _ORDERS = {
     },
 }
 
+# Simple passwords for demo login (pattern: {firstname_lower}123)
+PASSWORDS = {
+    "sarah@example.com": "sarah123",
+    "mike@example.com": "mike123",
+    "emma@example.com": "emma123",
+    "john@example.com": "john123",
+    "anna@example.com": "anna123",
+    "david@example.com": "david123",
+    "lisa@example.com": "lisa123",
+    "alex@example.com": "alex123",
+}
+
 # Working copies (mutated at runtime)
 customers = copy.deepcopy(_CUSTOMERS)
 orders = copy.deepcopy(_ORDERS)
+
+
+# ---------------------------------------------------------------------------
+# Auth Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/login")
+async def login(request: Request):
+    body = await request.json()
+    email = body.get("email", "").strip().lower()
+    password = body.get("password", "")
+
+    if PASSWORDS.get(email) == password:
+        customer = customers.get(email)
+        return {"success": True, "customer": {"email": customer["email"], "name": customer["name"]}}
+
+    return JSONResponse(status_code=401, content={"success": False, "error": "Invalid email or password"})
+
+
+@app.get("/api/auth/me")
+async def auth_me(email: str = Query(...)):
+    customer = customers.get(email)
+    if not customer:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Customer not found"})
+    return {"success": True, "customer": {"email": customer["email"], "name": customer["name"]}}
 
 
 # ---------------------------------------------------------------------------
