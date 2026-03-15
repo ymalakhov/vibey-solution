@@ -109,6 +109,10 @@
       font-size: 13px;
       max-width: 85%;
     }
+    .sai-action-card.escalated {
+      background: ${theme === "dark" ? "#1e293b" : "#eff6ff"};
+      border: 1px solid ${theme === "dark" ? "#1e40af" : "#93c5fd"};
+    }
 
     .sai-input-area {
       padding: 12px 16px;
@@ -229,10 +233,10 @@
     container.scrollTop = container.scrollHeight;
   }
 
-  function addActionCard(text) {
+  function addActionCard(text, isEscalated) {
     const container = document.getElementById("sai-messages");
     const div = document.createElement("div");
-    div.className = "sai-action-card";
+    div.className = "sai-action-card" + (isEscalated ? " escalated" : "");
     div.innerHTML = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -274,10 +278,16 @@
         addMessage("ai", data.response);
       }
 
-      if (data.pending_approval) {
+      if (data.escalated) {
         addActionCard(
-          `<strong>Action requested:</strong> ${data.pending_approval.tool_name}<br/>` +
-          `<small>Waiting for agent approval...</small>`
+          `<strong>Connecting you with a support agent</strong><br/>` +
+          `<small>A human agent will be with you shortly</small>`,
+          true
+        );
+      } else if (data.action_pending) {
+        addActionCard(
+          `<strong>Action:</strong> ${data.action_pending.tool_name}<br/>` +
+          `<small>Waiting for confirmation...</small>`
         );
       }
     } catch (err) {

@@ -487,30 +487,60 @@ function ChatsContent() {
                                     (e) => e.conversation_id === selected.id,
                                   )
                                 : null;
+                              const params = msg.tool_call.input
+                                ? Object.entries(msg.tool_call.input as Record<string, unknown>)
+                                : [];
                               return (
                                 <div
-                                  className={`mt-2 border rounded-xl p-3 ${pendingExec ? "bg-amber-50 border-amber-300" : "bg-amber-50 border-amber-200"}`}
+                                  className={`mt-2 rounded-xl overflow-hidden border ${
+                                    pendingExec
+                                      ? "border-amber-300 bg-amber-50/80"
+                                      : hasResult
+                                        ? "border-green-200 bg-green-50/60"
+                                        : "border-gray-200 bg-gray-50"
+                                  }`}
                                 >
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Wrench className="w-4 h-4 text-amber-600" />
-                                    <span className="text-xs font-medium text-amber-800">
-                                      Tool: {msg.tool_call.name}
+                                  {/* Header */}
+                                  <div className={`flex items-center gap-2 px-3 py-2 ${
+                                    pendingExec
+                                      ? "bg-amber-100/60"
+                                      : hasResult
+                                        ? "bg-green-100/60"
+                                        : "bg-gray-100/60"
+                                  }`}>
+                                    <Wrench className={`w-3.5 h-3.5 ${
+                                      pendingExec ? "text-amber-600" : hasResult ? "text-green-600" : "text-gray-500"
+                                    }`} />
+                                    <span className="text-xs font-semibold text-gray-800">
+                                      {msg.tool_call.name}
                                     </span>
                                     {pendingExec && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-200 text-yellow-800 font-medium">
-                                        Pending Approval
+                                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 font-medium animate-pulse">
+                                        Awaiting approval
+                                      </span>
+                                    )}
+                                    {hasResult && (
+                                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 font-medium">
+                                        Executed
                                       </span>
                                     )}
                                   </div>
-                                  <pre className="text-xs text-amber-700 mt-1">
-                                    {JSON.stringify(
-                                      msg.tool_call.input,
-                                      null,
-                                      2,
-                                    )}
-                                  </pre>
+                                  {/* Parameters */}
+                                  {params.length > 0 && (
+                                    <div className="px-3 py-2 space-y-1">
+                                      {params.map(([key, val]) => (
+                                        <div key={key} className="flex gap-2 text-xs">
+                                          <span className="text-gray-400 shrink-0">{key}:</span>
+                                          <span className="text-gray-700 break-all line-clamp-2">
+                                            {typeof val === "string" ? val : JSON.stringify(val)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {/* Approve / Reject */}
                                   {pendingExec && (
-                                    <div className="flex gap-2 mt-3 pt-2 border-t border-amber-200">
+                                    <div className="flex gap-2 px-3 py-2.5 border-t border-amber-200/60 bg-amber-50/40">
                                       <button
                                         onClick={() =>
                                           handleApprove(pendingExec.id)
@@ -518,7 +548,7 @@ function ChatsContent() {
                                         disabled={
                                           approvingId === pendingExec.id
                                         }
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                                       >
                                         <CheckCircle className="w-3.5 h-3.5" />
                                         Approve
@@ -530,7 +560,7 @@ function ChatsContent() {
                                         disabled={
                                           approvingId === pendingExec.id
                                         }
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-red-600 border border-red-200 text-xs font-medium rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
                                       >
                                         <XCircle className="w-3.5 h-3.5" />
                                         Reject

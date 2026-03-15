@@ -19,15 +19,17 @@ async def notify_conversation(conversation_id: str, data: dict):
     await manager.notify_conversation(conversation_id, data)
 
 
-def _message_to_dict(msg: Message) -> dict:
-    return {
+def _message_to_dict(msg: Message, include_tool_details: bool = True) -> dict:
+    d: dict = {
         "id": msg.id,
         "role": msg.role,
         "content": msg.content,
-        "tool_call": msg.tool_call,
-        "tool_result": msg.tool_result,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
+    if include_tool_details:
+        d["tool_call"] = msg.tool_call
+        d["tool_result"] = msg.tool_result
+    return d
 
 
 # REST endpoint for simple chat (widget uses this)
@@ -71,11 +73,14 @@ async def chat(workspace_id: str, msg: ChatMessage, conversation_id: str | None 
         db, conversation, msg.content, tools, attachments=msg.attachments
     )
 
+    # Send user-friendly info to widget — tool name but no parameters
+    pending = response.get("pending_approval")
+    escalated = response.get("tool_call", {}).get("name") == "escalate_to_human" if response.get("tool_call") else False
     return {
         "conversation_id": conversation.id,
         "response": response["text"],
-        "tool_call": response.get("tool_call"),
-        "pending_approval": response.get("pending_approval"),
+        "action_pending": {"tool_name": pending["tool_name"]} if pending else None,
+        "escalated": escalated,
     }
 
 
@@ -105,7 +110,12 @@ async def websocket_chat(websocket: WebSocket, workspace_id: str):
                         )
                         conv = result.scalar_one_or_none()
                         if conv:
-                            messages = [_message_to_dict(m) for m in conv.messages]
+                            # Only send customer/ai messages to widget — hide system/tool internals
+                            messages = [
+                                _message_to_dict(m, include_tool_details=False)
+                                for m in conv.messages
+                                if m.role in ("customer", "ai", "agent")
+                            ]
                             await websocket.send_text(json.dumps({
                                 "type": "restored",
                                 "conversation_id": conversation_id,
@@ -169,12 +179,14 @@ async def websocket_chat(websocket: WebSocket, workspace_id: str):
                         db, conversation, msg_data["content"], tools, attachments=attachments
                     )
 
-                    # Send response to widget
+                    # Send response to widget — tool name but no parameters
+                    pending = response.get("pending_approval")
+                    escalated = response.get("tool_call", {}).get("name") == "escalate_to_human" if response.get("tool_call") else False
                     await websocket.send_text(json.dumps({
                         "conversation_id": conversation_id,
                         "response": response["text"],
-                        "tool_call": response.get("tool_call"),
-                        "pending_approval": response.get("pending_approval"),
+                        "action_pending": {"tool_name": pending["tool_name"]} if pending else None,
+                        "escalated": escalated,
                     }))
 
                     # Refresh to pick up messages added by process_message()
