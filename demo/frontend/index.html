@@ -1,155 +1,305 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ShopVibe — Smart Shopping, Happy Living</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/styles.css">
-</head>
-<body>
-    <!-- Scenario Banner -->
-    <div class="scenario-banner">
-        <div>Try these demo scenarios — click a chip to open the widget with a pre-filled message</div>
-        <div class="chips">
-            <span class="scenario-chip" onclick="openWidgetWithMessage('I want a refund for order ORD-1001, the headphones arrived damaged')">Refund Request</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('I forgot my password, my email is sarah@example.com')">Password Reset</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('Where is my order ORD-1003?')">Track Order</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('I want to downgrade from Pro to Basic, my email is sarah@example.com')">Change Plan</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('I\'m locked out of my account, my email is mike@example.com')">Unlock Account</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('Change the shipping address for ORD-1008 to 456 Oak Ave, Portland, OR 97201')">Update Address</span>
-            <span class="scenario-chip" onclick="openWidgetWithMessage('I want to cancel my subscription, my email is emma@example.com')">Cancel Subscription</span>
-        </div>
-    </div>
-
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
     <!-- Navigation -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
-            <a href="/" class="text-xl font-bold text-violet-600">ShopVibe</a>
-            <div class="flex items-center gap-8">
-                <a href="/" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Home</a>
-                <a href="/products.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Products</a>
-                <a href="/orders.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Orders</a>
-                <a href="/account.html" class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1">Account</a>
-                <div id="nav-user" class="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200"></div>
-            </div>
+      <div
+        class="max-w-6xl mx-auto px-6 flex items-center justify-between h-16"
+      >
+        <a href="/" class="text-xl font-bold text-violet-600">ShopVibe</a>
+        <div class="flex items-center gap-8">
+          <a
+            href="/"
+            class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1"
+            >Home</a
+          >
+          <a
+            href="/products.html"
+            class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1"
+            >Products</a
+          >
+          <a
+            href="/orders.html"
+            class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1"
+            >Orders</a
+          >
+          <a
+            href="/account.html"
+            class="text-sm font-medium text-gray-700 hover:text-violet-600 pb-1"
+            >Account</a
+          >
+          <div
+            id="nav-user"
+            class="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200"
+          ></div>
         </div>
+      </div>
     </nav>
 
     <!-- Hero -->
     <section class="bg-gradient-to-br from-violet-600 to-indigo-700 text-white">
-        <div class="max-w-6xl mx-auto px-6 py-24 text-center">
-            <span class="inline-block bg-white/20 text-white px-4 py-1.5 rounded-full text-sm font-medium mb-6">AI-Powered Customer Support</span>
-            <h1 class="text-5xl font-extrabold mb-6 leading-tight">Smart Shopping,<br>Happy Living</h1>
-            <p class="text-xl text-violet-100 mb-10 max-w-2xl mx-auto">
-                Premium tech accessories with 24/7 AI-powered support. Get instant help with orders, refunds, and account management.
-            </p>
-            <div class="flex justify-center gap-4">
-                <a href="/products.html" class="bg-white text-violet-700 px-8 py-3 rounded-lg font-semibold hover:bg-violet-50 transition">Shop Now</a>
-                <button onclick="openWidgetWithMessage('Hi, I need some help')" class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition">Get Support</button>
-            </div>
+      <div class="max-w-6xl mx-auto px-6 py-24 text-center">
+        <span
+          class="inline-block bg-white/20 text-white px-4 py-1.5 rounded-full text-sm font-medium mb-6"
+          >AI-Powered Customer Support</span
+        >
+        <h1 class="text-5xl font-extrabold mb-6 leading-tight">
+          Smart Shopping,<br />Happy Living
+        </h1>
+        <p class="text-xl text-violet-100 mb-10 max-w-2xl mx-auto">
+          Premium tech accessories with 24/7 AI-powered support. Get instant
+          help with orders, refunds, and account management.
+        </p>
+        <div class="flex justify-center gap-4">
+          <a
+            href="/products.html"
+            class="bg-white text-violet-700 px-8 py-3 rounded-lg font-semibold hover:bg-violet-50 transition"
+            >Shop Now</a
+          >
+          <button
+            onclick="openWidgetWithMessage('Hi, I need some help')"
+            class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition"
+          >
+            Get Support
+          </button>
         </div>
+      </div>
     </section>
 
     <!-- Benefits Strip -->
     <section class="bg-white border-b border-gray-200">
-        <div class="max-w-6xl mx-auto px-6 py-6 flex justify-center gap-12 text-sm text-gray-600">
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Free Shipping over $50
-            </div>
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                30-Day Returns
-            </div>
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                24/7 AI Support
-            </div>
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Secure Checkout
-            </div>
+      <div
+        class="max-w-6xl mx-auto px-6 py-6 flex justify-center gap-12 text-sm text-gray-600"
+      >
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-violet-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          Free Shipping over $50
         </div>
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-violet-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          30-Day Returns
+        </div>
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-violet-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          24/7 AI Support
+        </div>
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-violet-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          Secure Checkout
+        </div>
+      </div>
     </section>
 
     <!-- Featured Products -->
     <section class="max-w-6xl mx-auto px-6 py-16">
-        <h2 class="text-2xl font-bold text-gray-900 mb-8">Featured Products</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" id="featured-products">
-            <!-- Filled by JS or static -->
-            <div class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <img src="https://picsum.photos/seed/headphones/400/400" alt="Wireless Headphones" class="w-full h-48 object-cover">
-                <div class="p-4">
-                    <h3 class="font-semibold text-gray-900">Wireless Headphones</h3>
-                    <div class="flex items-center gap-1 my-1"><span class="text-yellow-400 text-sm">&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="text-gray-400 text-xs">4.5</span></div>
-                    <div class="flex justify-between items-center mt-2">
-                        <span class="text-lg font-bold text-violet-600">$79.99</span>
-                        <button class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700">Add to Cart</button>
-                    </div>
-                </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-8">Featured Products</h2>
+      <div
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        id="featured-products"
+      >
+        <!-- Filled by JS or static -->
+        <div
+          class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden"
+        >
+          <img
+            src="https://picsum.photos/seed/headphones/400/400"
+            alt="Wireless Headphones"
+            class="w-full h-48 object-cover"
+          />
+          <div class="p-4">
+            <h3 class="font-semibold text-gray-900">Wireless Headphones</h3>
+            <div class="flex items-center gap-1 my-1">
+              <span class="text-yellow-400 text-sm"
+                >&#9733;&#9733;&#9733;&#9733;&#9734;</span
+              ><span class="text-gray-400 text-xs">4.5</span>
             </div>
-            <div class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <img src="https://picsum.photos/seed/keyboard/400/400" alt="Mechanical Keyboard" class="w-full h-48 object-cover">
-                <div class="p-4">
-                    <h3 class="font-semibold text-gray-900">Mechanical Keyboard</h3>
-                    <div class="flex items-center gap-1 my-1"><span class="text-yellow-400 text-sm">&#9733;&#9733;&#9733;&#9733;&#9734;</span><span class="text-gray-400 text-xs">4.7</span></div>
-                    <div class="flex justify-between items-center mt-2">
-                        <span class="text-lg font-bold text-violet-600">$129.99</span>
-                        <button class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700">Add to Cart</button>
-                    </div>
-                </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-lg font-bold text-violet-600">$79.99</span>
+              <button
+                class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700"
+              >
+                Add to Cart
+              </button>
             </div>
-            <div class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <img src="https://picsum.photos/seed/earbuds/400/400" alt="Noise-Canceling Earbuds" class="w-full h-48 object-cover">
-                <div class="p-4">
-                    <h3 class="font-semibold text-gray-900">Noise-Canceling Earbuds</h3>
-                    <div class="flex items-center gap-1 my-1"><span class="text-yellow-400 text-sm">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="text-gray-400 text-xs">4.9</span></div>
-                    <div class="flex justify-between items-center mt-2">
-                        <span class="text-lg font-bold text-violet-600">$149.99</span>
-                        <button class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700">Add to Cart</button>
-                    </div>
-                </div>
-            </div>
-            <div class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <img src="https://picsum.photos/seed/stand/400/400" alt="Laptop Stand" class="w-full h-48 object-cover">
-                <div class="p-4">
-                    <h3 class="font-semibold text-gray-900">Laptop Stand</h3>
-                    <div class="flex items-center gap-1 my-1"><span class="text-yellow-400 text-sm">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="text-gray-400 text-xs">4.8</span></div>
-                    <div class="flex justify-between items-center mt-2">
-                        <span class="text-lg font-bold text-violet-600">$49.99</span>
-                        <button class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700">Add to Cart</button>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+        <div
+          class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden"
+        >
+          <img
+            src="https://picsum.photos/seed/keyboard/400/400"
+            alt="Mechanical Keyboard"
+            class="w-full h-48 object-cover"
+          />
+          <div class="p-4">
+            <h3 class="font-semibold text-gray-900">Mechanical Keyboard</h3>
+            <div class="flex items-center gap-1 my-1">
+              <span class="text-yellow-400 text-sm"
+                >&#9733;&#9733;&#9733;&#9733;&#9734;</span
+              ><span class="text-gray-400 text-xs">4.7</span>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-lg font-bold text-violet-600">$129.99</span>
+              <button
+                class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700"
+              >
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden"
+        >
+          <img
+            src="https://picsum.photos/seed/earbuds/400/400"
+            alt="Noise-Canceling Earbuds"
+            class="w-full h-48 object-cover"
+          />
+          <div class="p-4">
+            <h3 class="font-semibold text-gray-900">Noise-Canceling Earbuds</h3>
+            <div class="flex items-center gap-1 my-1">
+              <span class="text-yellow-400 text-sm"
+                >&#9733;&#9733;&#9733;&#9733;&#9733;</span
+              ><span class="text-gray-400 text-xs">4.9</span>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-lg font-bold text-violet-600">$149.99</span>
+              <button
+                class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700"
+              >
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          class="product-card bg-white rounded-xl border border-gray-200 overflow-hidden"
+        >
+          <img
+            src="https://picsum.photos/seed/stand/400/400"
+            alt="Laptop Stand"
+            class="w-full h-48 object-cover"
+          />
+          <div class="p-4">
+            <h3 class="font-semibold text-gray-900">Laptop Stand</h3>
+            <div class="flex items-center gap-1 my-1">
+              <span class="text-yellow-400 text-sm"
+                >&#9733;&#9733;&#9733;&#9733;&#9733;</span
+              ><span class="text-gray-400 text-xs">4.8</span>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-lg font-bold text-violet-600">$49.99</span>
+              <button
+                class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-violet-700"
+              >
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Footer -->
     <footer class="bg-gray-900 text-gray-400 mt-16">
-        <div class="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between gap-8">
-            <div>
-                <span class="text-white font-bold text-lg">ShopVibe</span>
-                <p class="mt-2 text-sm">Demo e-commerce store for AI support testing.</p>
-            </div>
-            <div class="text-sm space-y-1">
-                <div class="text-white font-medium mb-2">Quick Links</div>
-                <a href="/products.html" class="block hover:text-white">Products</a>
-                <a href="/orders.html" class="block hover:text-white">Orders</a>
-                <a href="/account.html" class="block hover:text-white">Account</a>
-            </div>
-            <div class="text-sm space-y-1">
-                <div class="text-white font-medium mb-2">Support</div>
-                <a href="#" onclick="openWidgetWithMessage('Hi, I need help')" class="block hover:text-white">Live Chat</a>
-                <span class="block">support@shopvibe.demo</span>
-            </div>
+      <div
+        class="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between gap-8"
+      >
+        <div>
+          <span class="text-white font-bold text-lg">ShopVibe</span>
+          <p class="mt-2 text-sm">
+            Demo e-commerce store for AI support testing.
+          </p>
         </div>
-        <div class="border-t border-gray-800 text-center py-4 text-xs">ShopVibe Demo &mdash; not a real store</div>
+        <div class="text-sm space-y-1">
+          <div class="text-white font-medium mb-2">Quick Links</div>
+          <a href="/products.html" class="block hover:text-white">Products</a>
+          <a href="/orders.html" class="block hover:text-white">Orders</a>
+          <a href="/account.html" class="block hover:text-white">Account</a>
+        </div>
+        <div class="text-sm space-y-1">
+          <div class="text-white font-medium mb-2">Support</div>
+          <a
+            href="#"
+            onclick="openWidgetWithMessage('Hi, I need help')"
+            class="block hover:text-white"
+            >Live Chat</a
+          >
+          <span class="block">support@shopvibe.demo</span>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 text-center py-4 text-xs">
+        ShopVibe Demo &mdash; not a real store
+      </div>
     </footer>
 
     <!-- Widget -->
-    <script src="http://localhost:8000/widget/widget.js" data-workspace="demo" data-api="http://localhost:8000"></script>
+    <script
+      src="http://localhost:8000/widget/widget.js"
+      data-workspace="demo"
+      data-api="http://localhost:8000"
+      data-customer-email="sarah@example.com"
+    ></script>
     <script src="/js/app.js"></script>
-</body>
+  </body>
 </html>
