@@ -9,7 +9,7 @@ from app.models.models import Skill, Tool
 
 logger = logging.getLogger(__name__)
 
-SKILL_MATCH_PROMPT = """You are an intent classifier. Given a customer message and a list of available skills, determine which skill (if any) best matches the customer's issue.
+SKILL_MATCH_PROMPT = """You are a strict intent classifier. Given a customer message and a list of available skills, determine which skill (if any) best matches the customer's issue.
 
 Available skills:
 {skills_description}
@@ -19,6 +19,9 @@ Customer message: "{message}"
 Rules:
 - Match based on MEANING, not exact words.
 - Work with ANY language — the customer may write in English, Ukrainian, or any other language.
+- Be CONSERVATIVE: only match when the customer clearly has an issue or request that a specific skill handles.
+- Do NOT match for: greetings, general questions, vague inquiries, complaints without a clear action request, or messages that only loosely relate to a skill's topic.
+- When in doubt, respond with NONE. It is much better to miss a match than to force a wrong one.
 - If no skill matches, respond with: NONE
 - If a skill matches, respond with ONLY the skill ID, nothing else.
 - If multiple skills could match, pick the most specific one.

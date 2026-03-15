@@ -35,6 +35,7 @@ Guidelines:
 - NEVER invent or fabricate tool results. If a tool hasn't returned data, say you're checking and wait
 - If the customer explicitly asks for a real person / human agent / live support, use escalate_to_human immediately
 - If flow instructions are provided below, follow them as your guide but use good judgment. Always prioritize understanding the customer's actual intent. If the customer requests a human agent during any flow, escalate immediately.
+- If the customer's message is a general question, greeting, or does not clearly map to a specific action — just answer naturally and ask clarifying questions to better understand what they need. Do NOT use tools unless the customer's intent is clear.
 """
 
 # Built-in escalation tool definition (always injected, not stored in DB)

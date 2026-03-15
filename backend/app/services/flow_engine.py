@@ -9,7 +9,7 @@ from app.models.models import Flow, Conversation, ConversationFlowState, Tool, S
 
 logger = logging.getLogger(__name__)
 
-INTENT_MATCH_PROMPT = """You are an intent classifier. Given a customer message and a list of available support flows, determine which flow (if any) matches the customer's intent.
+INTENT_MATCH_PROMPT = """You are a strict intent classifier. Given a customer message and a list of available support flows, determine which flow (if any) matches the customer's intent.
 
 Available flows:
 {flows_description}
@@ -19,6 +19,9 @@ Customer message: "{message}"
 Rules:
 - Match based on MEANING, not exact words. "get rid of my profile" = "delete account".
 - Work with ANY language — the customer may write in English, Ukrainian, or any other language.
+- Be CONSERVATIVE: only match when the customer clearly wants to perform the specific action that a flow handles.
+- Do NOT match for: greetings, general questions, vague inquiries, complaints without a clear action request, or messages that only loosely relate to a flow's topic.
+- When in doubt, respond with NONE. It is much better to miss a match than to force a wrong one.
 - If no flow matches, respond with: NONE
 - If a flow matches, respond with ONLY the flow ID, nothing else.
 - If multiple flows could match, pick the most specific one.
