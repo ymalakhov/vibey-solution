@@ -134,16 +134,26 @@
       .sai-msg {
         max-width: 85%; padding: 10px 14px;
         border-radius: 16px; font-size: 14px;
-        line-height: 1.5; white-space: pre-wrap;
-        word-break: break-word;
+        line-height: 1.5; word-break: break-word;
       }
       .sai-msg.customer {
         background: ${C}; color: white;
         border-bottom-right-radius: 4px;
+        white-space: pre-wrap;
       }
       .sai-msg.ai {
         background: ${bubbleBg};
         border-bottom-left-radius: 4px;
+      }
+      .sai-msg.ai p { margin: 0 0 4px 0; }
+      .sai-msg.ai p:last-child { margin-bottom: 0; }
+      .sai-msg.ai br { display: block; content: ""; margin: 4px 0; }
+      .sai-msg.ai ul { margin: 4px 0; padding-left: 18px; }
+      .sai-msg.ai li { margin: 2px 0; }
+      .sai-msg.ai strong { font-weight: 600; }
+      .sai-msg.ai code {
+        background: rgba(0,0,0,0.06); padding: 1px 4px;
+        border-radius: 4px; font-size: 13px;
       }
       .sai-msg-time {
         font-size: 10px; opacity: 0.5; padding: 0 4px;
@@ -489,6 +499,57 @@
     return now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0");
   }
 
+  // --- Lightweight markdown renderer ---
+  function renderMarkdown(text) {
+    // Escape HTML entities first to prevent XSS
+    let html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    // Split into lines for block-level processing
+    const lines = html.split("\n");
+    const result = [];
+    let inList = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // Unordered list items: - item or * item
+      const listMatch = line.match(/^(\s*)[*-]\s+(.+)/);
+      if (listMatch) {
+        if (!inList) { result.push("<ul>"); inList = true; }
+        result.push("<li>" + inlineMarkdown(listMatch[2]) + "</li>");
+        continue;
+      }
+
+      // Close list if we were in one
+      if (inList) { result.push("</ul>"); inList = false; }
+
+      // Empty line → spacing
+      if (line.trim() === "") {
+        result.push("<br>");
+        continue;
+      }
+
+      // Regular line
+      result.push("<p>" + inlineMarkdown(line) + "</p>");
+    }
+    if (inList) result.push("</ul>");
+
+    return result.join("");
+  }
+
+  function inlineMarkdown(text) {
+    return text
+      // Bold: **text**
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      // Italic: *text* (but not inside bold)
+      .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
+      // Inline code: `code`
+      .replace(/`(.+?)`/g, "<code>$1</code>");
+  }
+
   // --- Add message ---
   function addMessage(role, text, attachments) {
     const container = document.getElementById("sai-messages");
@@ -513,7 +574,11 @@
 
     const div = document.createElement("div");
     div.className = `sai-msg ${role}`;
-    div.textContent = text;
+    if (role === "ai") {
+      div.innerHTML = renderMarkdown(text);
+    } else {
+      div.textContent = text;
+    }
     wrap.appendChild(div);
 
     const time = document.createElement("div");
@@ -785,7 +850,7 @@
     }
     if (data.pending_approval) {
       addToolCard(data.pending_approval, "pending");
-    } else if (data.tool_call) {
+    } else if (data.tool_call && data.tool_call.name !== "escalate_to_human") {
       addToolCard(data.tool_call, "processing");
     }
     saveState();
@@ -841,7 +906,7 @@
         }
         if (data.pending_approval) {
           addToolCard(data.pending_approval, "pending");
-        } else if (data.tool_call) {
+        } else if (data.tool_call && data.tool_call.name !== "escalate_to_human") {
           addToolCard(data.tool_call, "processing");
         }
       } catch (err) {

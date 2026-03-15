@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import Markdown from "react-markdown";
 import {
   getConversations,
   getConversation,
@@ -59,19 +61,31 @@ const priorityColor: Record<string, string> = {
 };
 
 export default function ChatsPage() {
+  return (
+    <Suspense>
+      <ChatsContent />
+    </Suspense>
+  );
+}
+
+function ChatsContent() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+    undefined,
+  );
   const [escalationContext, setEscalationContext] = useState<any>(null);
   const [pendingExecutions, setPendingExecutions] = useState<any[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const statusFilterRef = useRef<string | undefined>(undefined);
   const selectedIdRef = useRef<string | null>(null);
   const selectedRef = useRef<Conversation | null>(null);
+  const initialIdHandled = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRetries = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,7 +200,10 @@ export default function ChatsPage() {
 
   async function loadConversations() {
     try {
-      const data = await getConversations(WORKSPACE_ID, statusFilterRef.current);
+      const data = await getConversations(
+        WORKSPACE_ID,
+        statusFilterRef.current,
+      );
       setConversations(data);
     } catch {}
   }
@@ -195,6 +212,22 @@ export default function ChatsPage() {
   useEffect(() => {
     loadConversations();
   }, [statusFilter]);
+
+  // Auto-select conversation from ?id= query param
+  useEffect(() => {
+    if (initialIdHandled.current) return;
+    const id = searchParams.get("id");
+    if (id && conversations.length > 0) {
+      initialIdHandled.current = true;
+      const conv = conversations.find((c) => c.id === id);
+      if (conv) {
+        selectConversation(conv);
+      } else {
+        // Conversation might exist but not in current filter — fetch directly
+        selectConversation({ id } as Conversation);
+      }
+    }
+  }, [conversations, searchParams]);
 
   async function selectConversation(conv: Conversation) {
     setLoading(true);
@@ -206,7 +239,9 @@ export default function ChatsPage() {
       // Fetch pending executions for this conversation
       try {
         const allPending = await getPendingExecutions(WORKSPACE_ID);
-        setPendingExecutions(allPending.filter((e: any) => e.conversation_id === conv.id));
+        setPendingExecutions(
+          allPending.filter((e: any) => e.conversation_id === conv.id),
+        );
       } catch {}
       // Fetch escalation context for escalated conversations
       if (detail.status === "escalated") {
@@ -311,12 +346,14 @@ export default function ChatsPage() {
         </div>
         {/* Status filter tabs */}
         <div className="flex border-b border-gray-200 text-xs">
-          {([
-            { label: "All", value: undefined },
-            { label: "Escalated", value: "escalated" },
-            { label: "AI Handling", value: "ai_handling" },
-            { label: "Resolved", value: "resolved" },
-          ] as { label: string; value: string | undefined }[]).map((tab) => (
+          {(
+            [
+              { label: "All", value: undefined },
+              { label: "Escalated", value: "escalated" },
+              { label: "AI Handling", value: "ai_handling" },
+              { label: "Resolved", value: "resolved" },
+            ] as { label: string; value: string | undefined }[]
+          ).map((tab) => (
             <button
               key={tab.label}
               onClick={() => setStatusFilter(tab.value)}
@@ -401,7 +438,9 @@ export default function ChatsPage() {
                     {selected.category} &middot; {selected.priority} priority
                   </p>
                   {selected.ai_summary && (
-                    <p className="text-xs text-orange-600 mt-1">{selected.ai_summary}</p>
+                    <p className="text-xs text-orange-600 mt-1">
+                      {selected.ai_summary}
+                    </p>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -432,58 +471,75 @@ export default function ChatsPage() {
                       <div className="flex gap-2">
                         <Bot className="w-6 h-6 text-indigo-600 mt-1 shrink-0" />
                         <div className="max-w-md">
-                          <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5">
-                            <p className="text-sm whitespace-pre-wrap">
-                              {msg.content}
-                            </p>
+                          <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5 prose prose-sm max-w-none">
+                            <Markdown>{msg.content}</Markdown>
                           </div>
-                          {msg.tool_call && (() => {
-                            const msgIndex = selected.messages!.indexOf(msg);
-                            const hasResult = selected.messages!.slice(msgIndex + 1).some(
-                              (m) => m.role === "system" && m.tool_result
-                            );
-                            const pendingExec = !hasResult
-                              ? pendingExecutions.find((e) => e.conversation_id === selected.id)
-                              : null;
-                            return (
-                              <div className={`mt-2 border rounded-xl p-3 ${pendingExec ? "bg-amber-50 border-amber-300" : "bg-amber-50 border-amber-200"}`}>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Wrench className="w-4 h-4 text-amber-600" />
-                                  <span className="text-xs font-medium text-amber-800">
-                                    Tool: {msg.tool_call.name}
-                                  </span>
-                                  {pendingExec && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-200 text-yellow-800 font-medium">
-                                      Pending Approval
+                          {msg.tool_call &&
+                            (() => {
+                              const msgIndex = selected.messages!.indexOf(msg);
+                              const hasResult = selected
+                                .messages!.slice(msgIndex + 1)
+                                .some(
+                                  (m) => m.role === "system" && m.tool_result,
+                                );
+                              const pendingExec = !hasResult
+                                ? pendingExecutions.find(
+                                    (e) => e.conversation_id === selected.id,
+                                  )
+                                : null;
+                              return (
+                                <div
+                                  className={`mt-2 border rounded-xl p-3 ${pendingExec ? "bg-amber-50 border-amber-300" : "bg-amber-50 border-amber-200"}`}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Wrench className="w-4 h-4 text-amber-600" />
+                                    <span className="text-xs font-medium text-amber-800">
+                                      Tool: {msg.tool_call.name}
                                     </span>
+                                    {pendingExec && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-200 text-yellow-800 font-medium">
+                                        Pending Approval
+                                      </span>
+                                    )}
+                                  </div>
+                                  <pre className="text-xs text-amber-700 mt-1">
+                                    {JSON.stringify(
+                                      msg.tool_call.input,
+                                      null,
+                                      2,
+                                    )}
+                                  </pre>
+                                  {pendingExec && (
+                                    <div className="flex gap-2 mt-3 pt-2 border-t border-amber-200">
+                                      <button
+                                        onClick={() =>
+                                          handleApprove(pendingExec.id)
+                                        }
+                                        disabled={
+                                          approvingId === pendingExec.id
+                                        }
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleReject(pendingExec.id)
+                                        }
+                                        disabled={
+                                          approvingId === pendingExec.id
+                                        }
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        Reject
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
-                                <pre className="text-xs text-amber-700 mt-1">
-                                  {JSON.stringify(msg.tool_call.input, null, 2)}
-                                </pre>
-                                {pendingExec && (
-                                  <div className="flex gap-2 mt-3 pt-2 border-t border-amber-200">
-                                    <button
-                                      onClick={() => handleApprove(pendingExec.id)}
-                                      disabled={approvingId === pendingExec.id}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
-                                    >
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleReject(pendingExec.id)}
-                                      disabled={approvingId === pendingExec.id}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
-                                    >
-                                      <XCircle className="w-3.5 h-3.5" />
-                                      Reject
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
+                              );
+                            })()}
                         </div>
                       </div>
                     )}
@@ -507,11 +563,12 @@ export default function ChatsPage() {
                       </div>
                     )}
                     {msg.role === "system" && !msg.tool_result && (
-                      <div className="flex justify-center">
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 max-w-lg w-full">
-                          <p className="text-xs font-semibold text-orange-800 mb-1">Handoff Notes</p>
-                          <p className="text-sm text-orange-700 whitespace-pre-wrap">{msg.content}</p>
-                        </div>
+                      <div className="flex items-center gap-3 py-1">
+                        <div className="flex-1 border-t border-red-200" />
+                        <span className="text-[11px] text-red-400 font-medium whitespace-nowrap">
+                          Escalated to human agent
+                        </span>
+                        <div className="flex-1 border-t border-red-200" />
                       </div>
                     )}
                   </div>
@@ -558,28 +615,40 @@ export default function ChatsPage() {
             <div className="p-4 border-b border-red-200 bg-red-50">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-red-600" />
-                <h3 className="font-semibold text-red-800 text-sm">Escalation Details</h3>
+                <h3 className="font-semibold text-red-800 text-sm">
+                  Escalation Details
+                </h3>
               </div>
             </div>
 
             <div className="p-4 space-y-4">
               {/* Reason */}
               <div>
-                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Reason</p>
-                <p className="text-sm text-gray-800">{escalationContext.reason}</p>
+                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                  Reason
+                </p>
+                <p className="text-sm text-gray-800">
+                  {escalationContext.reason}
+                </p>
               </div>
 
               {/* Trigger badges */}
               <div>
-                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Triggers</p>
+                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                  Triggers
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {escalationContext.triggers?.map((trigger: string) => (
                     <span
                       key={trigger}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700"
                     >
-                      {trigger === "angry_customer" && <AlertTriangle className="w-3 h-3" />}
-                      {trigger === "low_confidence" && <Zap className="w-3 h-3" />}
+                      {trigger === "angry_customer" && (
+                        <AlertTriangle className="w-3 h-3" />
+                      )}
+                      {trigger === "low_confidence" && (
+                        <Zap className="w-3 h-3" />
+                      )}
                       {trigger.replace(/_/g, " ")}
                     </span>
                   ))}
@@ -589,23 +658,36 @@ export default function ChatsPage() {
               {/* Sentiment & Confidence */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Sentiment</p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    escalationContext.sentiment === "angry" ? "bg-red-100 text-red-700" :
-                    escalationContext.sentiment === "negative" ? "bg-orange-100 text-orange-700" :
-                    escalationContext.sentiment === "positive" ? "bg-green-100 text-green-700" :
-                    "bg-gray-100 text-gray-700"
-                  }`}>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Sentiment
+                  </p>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      escalationContext.sentiment === "angry"
+                        ? "bg-red-100 text-red-700"
+                        : escalationContext.sentiment === "negative"
+                          ? "bg-orange-100 text-orange-700"
+                          : escalationContext.sentiment === "positive"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
                     {escalationContext.sentiment}
                   </span>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Confidence</p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    escalationContext.confidence === "low" ? "bg-red-100 text-red-700" :
-                    escalationContext.confidence === "medium" ? "bg-yellow-100 text-yellow-700" :
-                    "bg-green-100 text-green-700"
-                  }`}>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Confidence
+                  </p>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      escalationContext.confidence === "low"
+                        ? "bg-red-100 text-red-700"
+                        : escalationContext.confidence === "medium"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                    }`}
+                  >
                     {escalationContext.confidence}
                   </span>
                 </div>
@@ -614,15 +696,22 @@ export default function ChatsPage() {
               {/* Customer profile */}
               {escalationContext.customer_profile && (
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Customer</p>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Customer
+                  </p>
                   <div className="text-xs text-gray-700 space-y-0.5">
                     {escalationContext.customer_profile.name && (
                       <p>{escalationContext.customer_profile.name}</p>
                     )}
                     {escalationContext.customer_profile.email && (
-                      <p className="text-gray-500">{escalationContext.customer_profile.email}</p>
+                      <p className="text-gray-500">
+                        {escalationContext.customer_profile.email}
+                      </p>
                     )}
-                    <p>{escalationContext.customer_profile.message_count} messages</p>
+                    <p>
+                      {escalationContext.customer_profile.message_count}{" "}
+                      messages
+                    </p>
                   </div>
                 </div>
               )}
@@ -630,13 +719,22 @@ export default function ChatsPage() {
               {/* Attempted actions */}
               {escalationContext.attempted_actions?.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Attempted Actions</p>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Attempted Actions
+                  </p>
                   <div className="space-y-1">
-                    {escalationContext.attempted_actions.map((action: any, i: number) => (
-                      <div key={i} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
-                        <span className="font-medium text-gray-800">{action.tool}</span>
-                      </div>
-                    ))}
+                    {escalationContext.attempted_actions.map(
+                      (action: any, i: number) => (
+                        <div
+                          key={i}
+                          className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200"
+                        >
+                          <span className="font-medium text-gray-800">
+                            {action.tool}
+                          </span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -644,18 +742,30 @@ export default function ChatsPage() {
               {/* Tool executions (live data from API) */}
               {escalationContext.tool_executions?.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Tool Executions</p>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Tool Executions
+                  </p>
                   <div className="space-y-1">
                     {escalationContext.tool_executions.map((ex: any) => (
-                      <div key={ex.id} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
+                      <div
+                        key={ex.id}
+                        className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200"
+                      >
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-gray-800">{ex.tool_name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                            ex.status === "executed" ? "bg-green-100 text-green-700" :
-                            ex.status === "pending" ? "bg-yellow-100 text-yellow-700" :
-                            ex.status === "rejected" ? "bg-red-100 text-red-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
+                          <span className="font-medium text-gray-800">
+                            {ex.tool_name}
+                          </span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                              ex.status === "executed"
+                                ? "bg-green-100 text-green-700"
+                                : ex.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : ex.status === "rejected"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
                             {ex.status}
                           </span>
                         </div>
@@ -665,18 +775,49 @@ export default function ChatsPage() {
                 </div>
               )}
 
+              {/* Handoff notes from system messages */}
+              {selected?.messages?.some(
+                (m: Message) => m.role === "system" && !m.tool_result,
+              ) && (
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Handoff Notes
+                  </p>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-1">
+                    {selected.messages
+                      .filter(
+                        (m: Message) => m.role === "system" && !m.tool_result,
+                      )
+                      .map((m: Message) => (
+                        <p
+                          key={m.id}
+                          className="text-xs text-orange-800 whitespace-pre-wrap"
+                        >
+                          {m.content}
+                        </p>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {/* Suggested action */}
               <div>
-                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Suggested Action</p>
+                <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                  Suggested Action
+                </p>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  <p className="text-xs text-blue-800">{escalationContext.suggested_next_action}</p>
+                  <p className="text-xs text-blue-800">
+                    {escalationContext.suggested_next_action}
+                  </p>
                 </div>
               </div>
 
               {/* Escalated at */}
               {escalationContext.escalated_at && (
                 <div>
-                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Escalated At</p>
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                    Escalated At
+                  </p>
                   <p className="text-xs text-gray-600">
                     {new Date(escalationContext.escalated_at).toLocaleString()}
                   </p>

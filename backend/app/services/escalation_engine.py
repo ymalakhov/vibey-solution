@@ -1,105 +1,87 @@
 import logging
-import re
 from datetime import datetime, timezone
 
-from app.models.models import Conversation, Message, Skill, ToolExecution
+import anthropic
+
+from app.config import settings
+from app.models.models import Conversation, Message, Skill
 
 logger = logging.getLogger(__name__)
 
-# --- Trigger 1: Angry Customer keywords ---
-ANGRY_KEYWORDS_EN = [
-    "unacceptable", "terrible", "worst", "furious", "ridiculous", "scam",
-    "sue", "lawyer", "complaint", "disgusting", "outrageous", "fraud",
-]
-ANGRY_KEYWORDS_UA = [
-    "жахливо", "обурений", "скарга", "шахрайство", "неприйнятно",
-    "огидно", "обурення", "жахливий",
-]
-NEGATIVE_KEYWORDS_EN = [
-    "disappointed", "unhappy", "frustrated", "annoying", "awful", "horrible",
-    "useless", "pathetic",
-]
-NEGATIVE_KEYWORDS_UA = [
-    "розчарований", "незадоволений", "дратує", "жахливий",
-]
+ANALYSIS_PROMPT = """Analyze this customer support conversation and return a JSON object with exactly two fields:
 
-# --- Trigger 2: Low Confidence hedging phrases ---
-LOW_CONFIDENCE_EN = [
-    "i'm not sure", "i don't know", "i'm unable to", "you may need to contact",
-    "i cannot", "beyond my capabilities", "i'd recommend speaking to",
-    "i'm not able to", "i don't have access", "unfortunately, i can't",
-    "i can't help with", "you should contact",
-]
-LOW_CONFIDENCE_UA = [
-    "я не впевнений", "не можу допомогти", "зверніться до",
-    "я не знаю", "не маю доступу",
-]
-MEDIUM_CONFIDENCE_EN = [
-    "i think", "i believe", "it seems", "possibly", "perhaps", "might be",
-]
+"sentiment": one of "angry", "negative", "neutral", "positive"
+  - "angry" = customer is furious, threatening, using strong language, swearing, ALL CAPS, etc.
+  - "negative" = customer is unhappy, disappointed, frustrated but not furious
+  - "neutral" = no strong emotion
+  - "positive" = customer is thankful, satisfied
+
+"confidence": one of "low", "medium", "high"
+  - "low" = the AI clearly couldn't help — said it doesn't know, can't do it, suggested contacting someone else, or gave a vague non-answer
+  - "medium" = the AI hedged — used "I think", "possibly", "it seems", was unsure
+  - "high" = the AI gave a direct, confident answer
+
+Last 3 customer messages:
+{customer_messages}
+
+Last AI response:
+{ai_response}
+
+Return ONLY valid JSON, nothing else. Example: {{"sentiment": "negative", "confidence": "low"}}"""
 
 
 class EscalationEngine:
-    """Evaluates escalation triggers after every AI response."""
+    """Evaluates escalation triggers after every AI response using AI analysis."""
 
-    def detect_sentiment(self, messages: list[Message]) -> str:
-        """Analyze sentiment from last 3 customer messages."""
+    def __init__(self):
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        return self._client
+
+    async def analyze(self, messages: list[Message], ai_response: str) -> dict:
+        """Use a fast AI call to detect sentiment and confidence at once."""
         customer_msgs = [m for m in messages if m.role == "customer"]
         recent = customer_msgs[-3:] if len(customer_msgs) >= 3 else customer_msgs
-        combined = " ".join(m.content for m in recent).lower()
+        customer_text = "\n".join(f"- {m.content}" for m in recent)
 
-        # Check angry signals
-        angry_count = 0
-        for kw in ANGRY_KEYWORDS_EN + ANGRY_KEYWORDS_UA:
-            if kw in combined:
-                angry_count += 1
+        if not customer_text:
+            return {"sentiment": "neutral", "confidence": "high"}
 
-        # Check caps words (3+ consecutive ALL CAPS words)
-        caps_pattern = r'\b[A-ZА-ЯІЇЄҐ]{2,}(?:\s+[A-ZА-ЯІЇЄҐ]{2,}){2,}\b'
-        if re.search(caps_pattern, " ".join(m.content for m in recent)):
-            angry_count += 2
+        prompt = ANALYSIS_PROMPT.format(
+            customer_messages=customer_text,
+            ai_response=ai_response or "(no response yet)",
+        )
 
-        # Check multiple exclamation marks
-        if combined.count("!") >= 3:
-            angry_count += 1
-
-        if angry_count >= 2:
-            return "angry"
-
-        # Check negative
-        negative_count = angry_count  # angry keywords also count as negative
-        for kw in NEGATIVE_KEYWORDS_EN + NEGATIVE_KEYWORDS_UA:
-            if kw in combined:
-                negative_count += 1
-        if negative_count >= 2:
-            return "negative"
-
-        # Positive signals
-        positive_keywords = ["thank", "great", "awesome", "perfect", "дякую", "чудово", "супер"]
-        if any(kw in combined for kw in positive_keywords):
-            return "positive"
-
-        return "neutral"
-
-    def detect_confidence(self, ai_response: str) -> str:
-        """Analyze AI response for hedging language."""
-        text_lower = ai_response.lower()
-
-        for phrase in LOW_CONFIDENCE_EN + LOW_CONFIDENCE_UA:
-            if phrase in text_lower:
-                return "low"
-
-        for phrase in MEDIUM_CONFIDENCE_EN:
-            if phrase in text_lower:
-                return "medium"
-
-        return "high"
+        try:
+            response = await self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=60,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            import json
+            text = response.content[0].text.strip()
+            result = json.loads(text)
+            sentiment = result.get("sentiment", "neutral")
+            confidence = result.get("confidence", "high")
+            # Validate values
+            if sentiment not in ("angry", "negative", "neutral", "positive"):
+                sentiment = "neutral"
+            if confidence not in ("low", "medium", "high"):
+                confidence = "high"
+            return {"sentiment": sentiment, "confidence": confidence}
+        except Exception as e:
+            logger.warning(f"AI analysis failed, falling back to neutral/high: {e}")
+            return {"sentiment": "neutral", "confidence": "high"}
 
     def check_complexity(self, message_count: int, tool_execution_count: int) -> bool:
-        """Trigger 4: Complex multi-step problem heuristic."""
+        """Complex multi-step problem heuristic."""
         return message_count > 8 and tool_execution_count > 2
 
-    def evaluate(
+    async def evaluate(
         self,
         conversation: Conversation,
         messages: list[Message],
@@ -113,8 +95,11 @@ class EscalationEngine:
         Returns escalation context dict if escalation should happen, None otherwise.
         """
         triggers = []
-        sentiment = self.detect_sentiment(messages)
-        confidence = self.detect_confidence(ai_response)
+
+        # AI-based sentiment and confidence analysis
+        analysis = await self.analyze(messages, ai_response)
+        sentiment = analysis["sentiment"]
+        confidence = analysis["confidence"]
 
         # Trigger 1: Angry customer
         if sentiment == "angry":
@@ -182,6 +167,8 @@ class EscalationEngine:
         skill: Skill | None,
     ) -> str:
         parts = []
+        if "ai_requested" in triggers:
+            parts.append("AI determined human assistance is needed")
         if "angry_customer" in triggers:
             parts.append("Customer expressed strong frustration")
         if "low_confidence" in triggers:
@@ -201,6 +188,8 @@ class EscalationEngine:
         category: str | None,
         skill: Skill | None,
     ) -> str:
+        if "ai_requested" in triggers:
+            return "AI transferred the customer — respond promptly to show a real person is here"
         if "angry_customer" in triggers and category == "billing":
             return "Review billing issue and consider compensation"
         if "low_confidence" in triggers and category == "technical":
