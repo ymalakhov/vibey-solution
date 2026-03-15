@@ -54,7 +54,7 @@ async def seed():
                 workspace_id="demo",
                 name="lookup_customer",
                 description="Look up customer information including orders, subscription plan, account status, and contact details. Use this first when a customer provides their email.",
-                endpoint="http://localhost:9000/api/lookup-customer",
+                endpoint="http://localhost:8000/api/shopvibe/lookup-customer",
                 method="GET",
                 parameters=[
                     {"name": "email", "type": "string", "description": "Customer email address", "required": True},
@@ -65,7 +65,7 @@ async def seed():
                 workspace_id="demo",
                 name="check_order_status",
                 description="Check the status and details of a specific order including tracking number, items, shipping address, and refund eligibility.",
-                endpoint="http://localhost:9000/api/order-status",
+                endpoint="http://localhost:8000/api/shopvibe/order-status",
                 method="GET",
                 parameters=[
                     {"name": "order_id", "type": "string", "description": "Order ID (e.g. ORD-1001)", "required": True},
@@ -76,7 +76,7 @@ async def seed():
                 workspace_id="demo",
                 name="refund_payment",
                 description="Process a refund for a customer's order. Only works on refund-eligible (delivered) orders. Use after verifying order details with check_order_status.",
-                endpoint="http://localhost:9000/api/refund",
+                endpoint="http://localhost:8000/api/shopvibe/refund",
                 method="POST",
                 parameters=[
                     {"name": "order_id", "type": "string", "description": "Order ID to refund", "required": True},
@@ -89,7 +89,7 @@ async def seed():
                 workspace_id="demo",
                 name="reset_password",
                 description="Send a password reset link to the customer's email address.",
-                endpoint="http://localhost:9000/api/reset-password",
+                endpoint="http://localhost:8000/api/shopvibe/reset-password",
                 method="POST",
                 parameters=[
                     {"name": "email", "type": "string", "description": "Customer email address", "required": True},
@@ -100,7 +100,7 @@ async def seed():
                 workspace_id="demo",
                 name="change_subscription_plan",
                 description="Change a customer's subscription plan tier. Available plans: basic ($9.99/mo), pro ($29.99/mo), business ($79.99/mo).",
-                endpoint="http://localhost:9000/api/change-subscription",
+                endpoint="http://localhost:8000/api/shopvibe/change-subscription",
                 method="POST",
                 parameters=[
                     {"name": "customer_email", "type": "string", "description": "Customer email", "required": True},
@@ -112,7 +112,7 @@ async def seed():
                 workspace_id="demo",
                 name="cancel_subscription",
                 description="Cancel a customer's active subscription. The subscription remains active until the end of the current billing period.",
-                endpoint="http://localhost:9000/api/cancel-subscription",
+                endpoint="http://localhost:8000/api/shopvibe/cancel-subscription",
                 method="POST",
                 parameters=[
                     {"name": "customer_email", "type": "string", "description": "Customer email", "required": True},
@@ -124,7 +124,7 @@ async def seed():
                 workspace_id="demo",
                 name="unlock_account",
                 description="Unlock a locked or suspended customer account, restoring it to active status.",
-                endpoint="http://localhost:9000/api/unlock-account",
+                endpoint="http://localhost:8000/api/shopvibe/unlock-account",
                 method="POST",
                 parameters=[
                     {"name": "email", "type": "string", "description": "Customer email address", "required": True},
@@ -135,7 +135,7 @@ async def seed():
                 workspace_id="demo",
                 name="update_shipping_address",
                 description="Update the shipping address for an order that is still in 'processing' status. Cannot update shipped or delivered orders.",
-                endpoint="http://localhost:9000/api/update-address",
+                endpoint="http://localhost:8000/api/shopvibe/update-address",
                 method="POST",
                 parameters=[
                     {"name": "order_id", "type": "string", "description": "Order ID to update", "required": True},
@@ -588,13 +588,13 @@ Level 1: Check this documentation and FAQ. Level 2: Contact support via chat wid
             total_chunks += len(result.all())
 
         print(f"Seeded workspace: demo")
-        print(f"Seeded {len(tools)} tools (endpoints pointing to localhost:9000)")
+        print(f"Seeded {len(tools)} tools (endpoints at /api/shopvibe/*)")
         print(f"Seeded 2 flows: Refund Request, Account Deletion")
         print(f"Seeded 3 skills: Billing Support, Technical Troubleshooting, New Customer Onboarding")
         print(f"Seeded KB: {len(kb_documents)} PayFlow docs + ShopVibe policies, {total_chunks} chunks")
         print(f"\nWorkspace ID: demo")
         print(f"Start the server and visit: http://localhost:8000/docs")
-        print(f"ShopVibe demo store: http://localhost:9000")
+        print(f"ShopVibe mock endpoints: http://localhost:8000/api/shopvibe/*")
 
 
 async def main():

@@ -9,6 +9,7 @@ import {
   resolveConversation,
   sendAgentReply,
   getEscalationContext,
+  getPendingExecutions,
 } from "@/lib/api";
 import {
   CheckCircle,
@@ -66,6 +67,8 @@ export default function ChatsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [escalationContext, setEscalationContext] = useState<any>(null);
+  const [pendingExecutions, setPendingExecutions] = useState<any[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const statusFilterRef = useRef<string | undefined>(undefined);
   const selectedIdRef = useRef<string | null>(null);
   const selectedRef = useRef<Conversation | null>(null);
@@ -196,9 +199,15 @@ export default function ChatsPage() {
   async function selectConversation(conv: Conversation) {
     setLoading(true);
     setEscalationContext(null);
+    setPendingExecutions([]);
     try {
       const detail = await getConversation(conv.id);
       setSelected(detail);
+      // Fetch pending executions for this conversation
+      try {
+        const allPending = await getPendingExecutions(WORKSPACE_ID);
+        setPendingExecutions(allPending.filter((e: any) => e.conversation_id === conv.id));
+      } catch {}
       // Fetch escalation context for escalated conversations
       if (detail.status === "escalated") {
         try {
@@ -211,18 +220,24 @@ export default function ChatsPage() {
   }
 
   async function handleApprove(executionId: string) {
+    setApprovingId(executionId);
     try {
       await approveExecution(executionId);
+      setPendingExecutions((prev) => prev.filter((e) => e.id !== executionId));
       if (selected) await selectConversation(selected);
       await loadConversations();
     } catch {}
+    setApprovingId(null);
   }
 
   async function handleReject(executionId: string) {
+    setApprovingId(executionId);
     try {
       await rejectExecution(executionId);
+      setPendingExecutions((prev) => prev.filter((e) => e.id !== executionId));
       if (selected) await selectConversation(selected);
     } catch {}
+    setApprovingId(null);
   }
 
   async function handleResolve() {
@@ -422,19 +437,53 @@ export default function ChatsPage() {
                               {msg.content}
                             </p>
                           </div>
-                          {msg.tool_call && (
-                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Wrench className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs font-medium text-amber-800">
-                                  Tool: {msg.tool_call.name}
-                                </span>
+                          {msg.tool_call && (() => {
+                            const msgIndex = selected.messages!.indexOf(msg);
+                            const hasResult = selected.messages!.slice(msgIndex + 1).some(
+                              (m) => m.role === "system" && m.tool_result
+                            );
+                            const pendingExec = !hasResult
+                              ? pendingExecutions.find((e) => e.conversation_id === selected.id)
+                              : null;
+                            return (
+                              <div className={`mt-2 border rounded-xl p-3 ${pendingExec ? "bg-amber-50 border-amber-300" : "bg-amber-50 border-amber-200"}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Wrench className="w-4 h-4 text-amber-600" />
+                                  <span className="text-xs font-medium text-amber-800">
+                                    Tool: {msg.tool_call.name}
+                                  </span>
+                                  {pendingExec && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-200 text-yellow-800 font-medium">
+                                      Pending Approval
+                                    </span>
+                                  )}
+                                </div>
+                                <pre className="text-xs text-amber-700 mt-1">
+                                  {JSON.stringify(msg.tool_call.input, null, 2)}
+                                </pre>
+                                {pendingExec && (
+                                  <div className="flex gap-2 mt-3 pt-2 border-t border-amber-200">
+                                    <button
+                                      onClick={() => handleApprove(pendingExec.id)}
+                                      disabled={approvingId === pendingExec.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleReject(pendingExec.id)}
+                                      disabled={approvingId === pendingExec.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                              <pre className="text-xs text-amber-700 mt-1">
-                                {JSON.stringify(msg.tool_call.input, null, 2)}
-                              </pre>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       </div>
                     )}

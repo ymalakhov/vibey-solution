@@ -12,6 +12,7 @@ from app.services.flow_engine import flow_engine
 from app.services.skill_engine import skill_engine
 from app.services.escalation_engine import escalation_engine
 from app.services.connection_manager import manager
+from app.services.tool_executor import execute_tool
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +305,50 @@ class AIAgent:
                         "tool_description": tool.description,
                         "input": tool_call["input"],
                     }
+                else:
+                    # Auto-execute and continue conversation
+                    result = await execute_tool(db, execution)
+
+                    # Save tool result as system message
+                    system_msg = Message(
+                        conversation_id=conversation.id,
+                        role="system",
+                        content=f"Tool result: {result}",
+                        tool_result={"tool_use_id": tool_call["id"], "result": result},
+                    )
+                    db.add(system_msg)
+                    await db.flush()
+
+                    # Rebuild messages with tool result and call Claude again
+                    all_messages = conversation.messages + [customer_msg, ai_msg, system_msg]
+                    messages = self._build_messages(all_messages)
+
+                    followup_kwargs = {
+                        "model": settings.AI_MODEL,
+                        "max_tokens": 1024,
+                        "system": system_prompt,
+                        "messages": messages,
+                    }
+                    if claude_tools:
+                        followup_kwargs["tools"] = claude_tools
+
+                    followup_response = await self.client.messages.create(**followup_kwargs)
+
+                    followup_text = ""
+                    for block in followup_response.content:
+                        if block.type == "text":
+                            followup_text += block.text
+
+                    followup_msg = Message(
+                        conversation_id=conversation.id,
+                        role="ai",
+                        content=followup_text,
+                    )
+                    db.add(followup_msg)
+
+                    # Use follow-up text for escalation checks and return
+                    ai_text = followup_text
+                    tool_call = None  # Tool already executed, don't send card to widget
 
         # Update conversation
         conversation.status = "ai_handling"
