@@ -23,15 +23,38 @@ Your capabilities:
 - You can understand customer intent and classify their issue
 - You can use tools to perform real actions (refunds, plan changes, password resets, etc.)
 - You always explain what you're doing in a friendly, professional tone
-- If you cannot resolve an issue, you escalate to a human agent with full context
+- If you cannot resolve an issue, you MUST use the escalate_to_human tool to transfer the customer
 
 Guidelines:
 - Be concise and helpful
 - Always confirm before executing irreversible actions
 - If the customer is frustrated, acknowledge their feelings first
 - Respond in the same language the customer uses
-- IMPORTANT: If flow instructions are provided below, you MUST follow them exactly. Do only what the current step says. Do NOT decide on your own to escalate, skip steps, or ask questions not specified in the flow.
+- NEVER pretend to transfer to a human — you MUST call the escalate_to_human tool to actually do it
+- NEVER invent or fabricate tool results. If a tool hasn't returned data, say you're checking and wait
+- If the customer explicitly asks for a real person / human agent / live support, use escalate_to_human immediately
+- If flow instructions are provided below, follow them as your guide but use good judgment. Always prioritize understanding the customer's actual intent. If the customer requests a human agent during any flow, escalate immediately.
 """
+
+# Built-in escalation tool definition (always injected, not stored in DB)
+ESCALATE_TOOL = {
+    "name": "escalate_to_human",
+    "description": "Transfer the conversation to a human support agent. Use this when: the customer explicitly asks for a human, you cannot resolve the issue, the problem is too complex, or the customer is very frustrated.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "reason": {
+                "type": "string",
+                "description": "Brief reason for escalation (e.g. 'Customer requested human agent', 'Cannot process refund automatically')",
+            },
+            "summary": {
+                "type": "string",
+                "description": "Summary of the conversation and what was attempted so far",
+            },
+        },
+        "required": ["reason", "summary"],
+    },
+}
 
 
 class AIAgent:
@@ -63,8 +86,9 @@ class AIAgent:
             return base_prompt
 
     def _db_tools_to_claude_format(self, tools: list[Tool]) -> list[dict]:
-        """Convert DB tool definitions to Claude API tool format."""
-        claude_tools = []
+        """Convert DB tool definitions to Claude API tool format.
+        Always includes the built-in escalate_to_human tool."""
+        claude_tools = [ESCALATE_TOOL]
         for tool in tools:
             if not tool.is_active:
                 continue
@@ -212,17 +236,35 @@ class AIAgent:
                 logger.info(f"Flow matched: '{flow.name}', starting at node: {flow_state.current_node_id}")
 
         # If flow is active, replace the system prompt entirely
+        use_flow_prompt = False
+        flow_escalation_override = False
         if flow and flow_state and flow_state.status == "active":
             # Only advance on customer answer if this is a continuing flow, not the trigger message
             if not just_matched:
-                flow_engine.advance_after_customer_message(flow_state, flow, user_message)
-                logger.info(f"Flow advanced to node: {flow_state.current_node_id}, data: {flow_state.collected_data}")
+                advance_result = flow_engine.advance_after_customer_message(flow_state, flow, user_message)
+                logger.info(f"Flow advance result: {advance_result}, node: {flow_state.current_node_id}, data: {flow_state.collected_data}")
+
+                if advance_result == "escalation_request":
+                    # Customer wants a human — break out of flow, let AI escalate
+                    system_prompt = SYSTEM_PROMPT + (
+                        "\n\nIMPORTANT: The customer has explicitly asked to speak with a human agent. "
+                        "Use the escalate_to_human tool NOW. Briefly summarize what has been discussed so far."
+                    )
+                    active_tools = tools
+                    flow_escalation_override = True
+                    logger.info("[FLOW] Customer requested escalation — breaking out of flow")
+                else:
+                    use_flow_prompt = True
+            else:
+                use_flow_prompt = True
+
+        if use_flow_prompt and flow and flow_state and flow_state.status == "active":
             flow_prompt = await flow_engine.compile_system_prompt_async(db, flow, flow_state)
             if flow_prompt:
                 system_prompt = flow_prompt
                 logger.info(f"[FLOW] Replaced system prompt for node: {flow_state.current_node_id}")
             active_tools = flow_engine.get_available_tools(flow, flow_state, tools)
-        else:
+        elif not flow_escalation_override:
             # --- Skill engine integration ---
             # Try to match a skill if no flow is active
             matched_skill = await skill_engine.match_skill(db, conversation.workspace_id, user_message)
@@ -282,31 +324,81 @@ class AIAgent:
         )
         db.add(ai_msg)
 
-        # If tool call, create execution record
+        # Handle tool calls
         pending_approval = None
         if tool_call:
-            # Find tool in DB
-            tool = next((t for t in tools if t.name == tool_call["name"]), None)
-            if tool:
-                execution = ToolExecution(
-                    tool_id=tool.id,
-                    conversation_id=conversation.id,
-                    input_data=tool_call["input"],
-                    status="pending" if tool.requires_approval else "approved",
-                )
-                db.add(execution)
-                await db.flush()
+            if tool_call["name"] == "escalate_to_human":
+                # Built-in escalation tool — actually escalate the conversation
+                esc_input = tool_call.get("input", {})
+                reason = esc_input.get("reason", "AI requested escalation")
+                summary = esc_input.get("summary", "")
 
-                if tool.requires_approval:
-                    pending_approval = {
-                        "execution_id": execution.id,
-                        "tool_name": tool.name,
-                        "tool_description": tool.description,
-                        "input": tool_call["input"],
-                    }
+                conversation.status = "escalated"
+                conversation.escalation_reason = reason
+                conversation.ai_summary = summary or reason
+                conversation.priority = "high"
+
+                # Build escalation context
+                all_msgs = conversation.messages + [customer_msg, ai_msg]
+                customer_msgs = [m for m in all_msgs if m.role == "customer"]
+                analysis = await escalation_engine.analyze(all_msgs, ai_text)
+                conversation.sentiment = analysis["sentiment"]
+                conversation.escalation_context = {
+                    "reason": reason,
+                    "triggers": ["ai_requested"],
+                    "sentiment": analysis["sentiment"],
+                    "confidence": analysis["confidence"],
+                    "category": conversation.category,
+                    "customer_profile": {
+                        "name": conversation.customer_name,
+                        "email": conversation.customer_email,
+                        "message_count": len(customer_msgs),
+                    },
+                    "attempted_actions": [
+                        {"tool": m.tool_call.get("name"), "input": m.tool_call.get("input")}
+                        for m in conversation.messages if m.role == "ai" and m.tool_call
+                    ],
+                    "suggested_next_action": f"Review: {reason}",
+                    "escalated_at": __import__("datetime").datetime.now(
+                        __import__("datetime").timezone.utc
+                    ).isoformat(),
+                }
+
+                handoff_msg = Message(
+                    conversation_id=conversation.id,
+                    role="system",
+                    content=f"Escalated to human agent — {reason}",
+                )
+                db.add(handoff_msg)
+
+                await manager.notify_admins_escalation(
+                    conversation.workspace_id, conversation.id, conversation.escalation_context
+                )
+                logger.info(f"[ESCALATION] AI requested escalation: {reason}")
+            else:
+                # Regular tool — find in DB and create execution record
+                tool = next((t for t in tools if t.name == tool_call["name"]), None)
+                if tool:
+                    execution = ToolExecution(
+                        tool_id=tool.id,
+                        conversation_id=conversation.id,
+                        input_data=tool_call["input"],
+                        status="pending" if tool.requires_approval else "approved",
+                    )
+                    db.add(execution)
+                    await db.flush()
+
+                    if tool.requires_approval:
+                        pending_approval = {
+                            "execution_id": execution.id,
+                            "tool_name": tool.name,
+                            "tool_description": tool.description,
+                            "input": tool_call["input"],
+                        }
 
         # Update conversation
-        conversation.status = "ai_handling"
+        if conversation.status != "escalated":
+            conversation.status = "ai_handling"
         if not conversation.category and ai_text:
             conversation.category = self._detect_category(user_message)
 
@@ -332,8 +424,6 @@ class AIAgent:
 
         # --- Smart escalation check ---
         all_msgs = conversation.messages + [customer_msg, ai_msg]
-        sentiment = escalation_engine.detect_sentiment(all_msgs)
-        conversation.sentiment = sentiment
 
         if conversation.status != "escalated":
             # Count tool executions for this conversation
@@ -349,7 +439,7 @@ class AIAgent:
                     matched_skill, ai_text, {"category": conversation.category}
                 )
 
-            esc_context = escalation_engine.evaluate(
+            esc_context = await escalation_engine.evaluate(
                 conversation=conversation,
                 messages=all_msgs,
                 ai_response=ai_text,
@@ -359,21 +449,20 @@ class AIAgent:
             )
             if esc_context:
                 conversation.status = "escalated"
+                conversation.sentiment = esc_context["sentiment"]
                 conversation.escalation_reason = esc_context["reason"]
                 conversation.escalation_context = esc_context
                 if "angry_customer" in esc_context["triggers"]:
                     conversation.priority = "urgent"
                 if not conversation.ai_summary:
                     conversation.ai_summary = esc_context["reason"]
-                # Save handoff notes as system message
                 handoff_msg = Message(
                     conversation_id=conversation.id,
                     role="system",
-                    content=f"[Smart Escalation] {esc_context['reason']}\nSuggested action: {esc_context['suggested_next_action']}",
+                    content=f"Escalated to human agent — {esc_context['reason']}",
                 )
                 db.add(handoff_msg)
                 logger.info(f"[ESCALATION] Triggered: {esc_context['triggers']} for conversation {conversation.id}")
-                # Notify admins via WebSocket
                 await manager.notify_admins_escalation(
                     conversation.workspace_id, conversation.id, esc_context
                 )
@@ -447,8 +536,6 @@ class AIAgent:
 
         # --- Smart escalation check after tool continuation ---
         all_msgs_after = conversation.messages + [system_msg, ai_msg]
-        sentiment = escalation_engine.detect_sentiment(all_msgs_after)
-        conversation.sentiment = sentiment
 
         if conversation.status != "escalated":
             te_result = await db.execute(
@@ -456,7 +543,7 @@ class AIAgent:
             )
             tool_exec_count = len(te_result.scalars().all())
 
-            esc_context = escalation_engine.evaluate(
+            esc_context = await escalation_engine.evaluate(
                 conversation=conversation,
                 messages=all_msgs_after,
                 ai_response=ai_text,
@@ -464,6 +551,7 @@ class AIAgent:
             )
             if esc_context:
                 conversation.status = "escalated"
+                conversation.sentiment = esc_context["sentiment"]
                 conversation.escalation_reason = esc_context["reason"]
                 conversation.escalation_context = esc_context
                 if "angry_customer" in esc_context["triggers"]:
@@ -473,7 +561,7 @@ class AIAgent:
                 handoff_msg = Message(
                     conversation_id=conversation.id,
                     role="system",
-                    content=f"[Smart Escalation] {esc_context['reason']}\nSuggested action: {esc_context['suggested_next_action']}",
+                    content=f"Escalated to human agent — {esc_context['reason']}",
                 )
                 db.add(handoff_msg)
                 logger.info(f"[ESCALATION] Triggered after tool: {esc_context['triggers']} for conversation {conversation.id}")

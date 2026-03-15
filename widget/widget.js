@@ -785,7 +785,7 @@
     }
     if (data.pending_approval) {
       addToolCard(data.pending_approval, "pending");
-    } else if (data.tool_call) {
+    } else if (data.tool_call && data.tool_call.name !== "escalate_to_human") {
       addToolCard(data.tool_call, "processing");
     }
     saveState();
@@ -841,7 +841,7 @@
         }
         if (data.pending_approval) {
           addToolCard(data.pending_approval, "pending");
-        } else if (data.tool_call) {
+        } else if (data.tool_call && data.tool_call.name !== "escalate_to_human") {
           addToolCard(data.tool_call, "processing");
         }
       } catch (err) {

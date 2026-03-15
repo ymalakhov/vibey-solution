@@ -157,11 +157,14 @@ class FlowEngine:
             "You are a customer support assistant executing a structured support flow.",
             "You are currently inside the flow: \"" + flow.name + "\".",
             "",
-            "RULES (non-negotiable):",
-            "1. Execute ONLY the current step described below — nothing more, nothing less.",
-            "2. Do NOT improvise, skip ahead, ask unrelated questions, or decide to escalate on your own.",
-            "3. Do NOT tell the customer you are following a flow or script.",
-            "4. Be friendly and concise. Respond in the same language the customer uses.",
+            "RULES:",
+            "1. Follow the current step described below as your primary guide.",
+            "2. Interpret customer responses intelligently — understand their INTENT, not just literal words.",
+            "3. If the customer explicitly asks for a human agent or operator, use the escalate_to_human tool IMMEDIATELY — this overrides the flow.",
+            "4. If the customer cannot provide requested information, acknowledge this and help them (suggest where to find it, offer alternatives, or escalate if truly stuck).",
+            "5. Do NOT tell the customer you are following a flow or script.",
+            "6. Be friendly and concise. Respond in the same language the customer uses.",
+            "7. When calling tools, use only valid, meaningful data as parameter values. NEVER pass raw conversational text like 'I don\\'t have it' or 'I want an operator' as a parameter value.",
         ]
 
         if state.collected_data:
@@ -177,12 +180,12 @@ class FlowEngine:
             required = data.get("required", True)
             validation = data.get("validation", "")
             lines.append(f"\nCURRENT STEP — ASK A QUESTION:")
-            lines.append(f'You MUST ask the customer this question (rephrase naturally): "{question}"')
+            lines.append(f'Ask the customer (rephrase naturally): "{question}"')
             lines.append(f"The answer will be stored as: {var_name}")
             if validation:
                 lines.append(f"Validate the answer: {validation}")
             if required:
-                lines.append("This is REQUIRED. Do NOT proceed without an answer. Do NOT ask anything else.")
+                lines.append("This information is important. If the customer cannot provide it, try to help them find it or suggest alternatives. Escalate to a human agent only if there is no way to proceed.")
 
         elif node_type == "tool":
             tool_id = data.get("tool_id", "")
@@ -244,7 +247,7 @@ class FlowEngine:
             if data.get("generate_summary"):
                 lines.append("Provide a brief summary of the conversation to the customer.")
 
-        lines.append("\nRemember: do ONLY what the current step says. Nothing else.")
+        lines.append("\nFocus on the current step, but always use good judgment about customer intent.")
         return "\n".join(lines)
 
     def get_available_tools(self, flow: Flow, state: ConversationFlowState, all_tools: list[Tool]) -> list[Tool]:
@@ -403,14 +406,44 @@ class FlowEngine:
 
     def advance_after_customer_message(
         self, state: ConversationFlowState, flow: Flow, customer_message: str
-    ) -> None:
-        """Advance flow after customer provides an answer to a question node."""
+    ) -> str:
+        """Advance flow after customer provides an answer to a question node.
+
+        Returns a classification of the customer's response:
+        - "answered"            – valid answer stored, flow advanced
+        - "no_answer"           – customer indicated they can't provide the info
+        - "escalation_request"  – customer wants a human agent
+        - "skipped"             – not on a question node, nothing to do
+        """
         nodes = {n["id"]: n for n in (flow.nodes or [])}
         current = nodes.get(state.current_node_id)
 
         if not current or current.get("type") != "question":
-            return
+            return "skipped"
 
+        msg_lower = customer_message.lower().strip()
+
+        # Detect escalation requests (multilingual)
+        escalation_keywords = [
+            "оператор", "людин", "живий", "реальн", "менеджер",
+            "з'єднайте", "переключ", "переведіть",
+            "human", "real person", "live agent", "operator", "manager",
+            "speak to someone", "talk to someone", "transfer me",
+        ]
+        if any(kw in msg_lower for kw in escalation_keywords):
+            return "escalation_request"
+
+        # Detect non-answers
+        no_answer_keywords = [
+            "не маю", "не знаю", "немає", "не пам'ятаю", "не можу знайти",
+            "don't have", "dont have", "no idea", "don't know", "dont know",
+            "not sure", "can't find", "cant find", "don't remember",
+            "не помню", "нету", "не имею", "нет у меня",
+        ]
+        if any(kw in msg_lower for kw in no_answer_keywords):
+            return "no_answer"
+
+        # Valid answer — store and advance
         data = current.get("data", {})
         var_name = data.get("variable_name")
         if var_name:
@@ -419,6 +452,7 @@ class FlowEngine:
             state.collected_data = collected
 
         self._move_to_next(state, flow)
+        return "answered"
 
     def _move_to_next(self, state: ConversationFlowState, flow: Flow) -> None:
         """Move to the next node in the flow."""

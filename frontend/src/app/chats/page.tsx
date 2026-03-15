@@ -422,7 +422,7 @@ export default function ChatsPage() {
                               {msg.content}
                             </p>
                           </div>
-                          {msg.tool_call && (
+                          {msg.tool_call && msg.tool_call.name !== "escalate_to_human" && (
                             <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <Wrench className="w-4 h-4 text-amber-600" />
