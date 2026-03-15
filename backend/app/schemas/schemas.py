@@ -140,9 +140,14 @@ class AnalyticsResponse(BaseModel):
     ai_resolved: int
     ai_resolved_pct: float
     avg_resolution_time_min: float
-    csat_avg: float
+    escalation_rate: float
     tool_usage: list[dict]
     category_breakdown: list[dict]
+    priority_breakdown: dict  # {urgent: N, high: N, medium: N, low: N}
+    status_breakdown: dict  # {open: N, ai_handling: N, escalated: N, resolved: N}
+    sentiment_breakdown: dict  # {positive: N, neutral: N, negative: N, angry: N}
+    high_priority_tickets: list[dict]  # urgent + high open tickets
+    pending_approvals: list[dict]  # tool executions awaiting approval
 
 
 # --- Flow schemas ---

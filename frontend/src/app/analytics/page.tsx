@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getAnalytics } from "@/lib/api";
-import { BarChart3, Bot, Clock, Star } from "lucide-react";
+import { BarChart3, Bot, Clock, AlertTriangle } from "lucide-react";
 
 const WORKSPACE_ID = "demo";
 
@@ -11,9 +11,12 @@ interface Analytics {
   ai_resolved: number;
   ai_resolved_pct: number;
   avg_resolution_time_min: number;
-  csat_avg: number;
+  escalation_rate: number;
   tool_usage: { name: string; usage_count: number; success_count: number }[];
   category_breakdown: { category: string; count: number }[];
+  priority_breakdown: { urgent: number; high: number; medium: number; low: number };
+  status_breakdown: { open: number; ai_handling: number; escalated: number; resolved: number };
+  sentiment_breakdown: { positive: number; neutral: number; negative: number; angry: number };
 }
 
 export default function AnalyticsPage() {
@@ -63,10 +66,10 @@ export default function AnalyticsPage() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
-            <Star className="w-5 h-5 text-amber-500" />
-            <span className="text-sm text-gray-500">CSAT Average</span>
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <span className="text-sm text-gray-500">Escalation Rate</span>
           </div>
-          <p className="text-2xl font-bold">{data.csat_avg} / 5</p>
+          <p className="text-2xl font-bold">{data.escalation_rate}%</p>
         </div>
       </div>
 
