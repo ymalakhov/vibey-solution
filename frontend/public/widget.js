@@ -6,13 +6,14 @@
   const theme = script.getAttribute("data-theme") || "light";
 
   const API_BASE = script.getAttribute("data-api") || "http://localhost:8000";
+  const EXTERNAL_EMAIL = script.getAttribute("data-customer-email") || null;
 
   // State
   let isOpen = false;
   let conversationId = null;
-  let customerEmail = null;
+  let customerEmail = EXTERNAL_EMAIL;
   let messages = [];
-  let emailCollected = false;
+  let emailCollected = !!EXTERNAL_EMAIL;
 
   // Styles
   const styles = document.createElement("style");
@@ -205,15 +206,20 @@
   document.getElementById("sai-input").onkeydown = (e) => {
     if (e.key === "Enter") sendMessage();
   };
-  document.getElementById("sai-email-submit").onclick = () => {
-    const email = document.getElementById("sai-email-input").value;
-    if (email) {
-      customerEmail = email;
-      emailCollected = true;
-      document.getElementById("sai-email-form").style.display = "none";
-      document.getElementById("sai-input-area").style.display = "flex";
-    }
-  };
+  if (EXTERNAL_EMAIL) {
+    document.getElementById("sai-email-form").style.display = "none";
+    document.getElementById("sai-input-area").style.display = "flex";
+  } else {
+    document.getElementById("sai-email-submit").onclick = () => {
+      const email = document.getElementById("sai-email-input").value;
+      if (email) {
+        customerEmail = email;
+        emailCollected = true;
+        document.getElementById("sai-email-form").style.display = "none";
+        document.getElementById("sai-input-area").style.display = "flex";
+      }
+    };
+  }
 
   function toggle() {
     isOpen = !isOpen;

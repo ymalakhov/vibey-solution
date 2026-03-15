@@ -107,7 +107,10 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="font-semibold mb-4">Install Widget</h3>
         <p className="text-sm text-gray-500 mb-3">
-          Add this code before the closing &lt;/body&gt; tag on your website:
+          Add this code before the closing &lt;/body&gt; tag on your website.
+          If your users are already authenticated, pass their email via{" "}
+          <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">data-customer-email</code>{" "}
+          to skip the email form.
         </p>
         <div className="relative">
           <pre className="bg-gray-900 text-green-400 rounded-lg p-4 text-sm overflow-x-auto">

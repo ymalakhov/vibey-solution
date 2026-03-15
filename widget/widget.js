@@ -3,6 +3,7 @@
   const WORKSPACE_ID = script.getAttribute("data-workspace") || "demo";
   const API_BASE = script.getAttribute("data-api") || "http://localhost:8000";
   const DATA_SOUND = script.getAttribute("data-sound") !== "false";
+  const EXTERNAL_EMAIL = script.getAttribute("data-customer-email") || null;
 
   // Defaults (overridden by backend config, then by data-attributes)
   const DEFAULTS = {
@@ -18,8 +19,8 @@
   // State
   let isOpen = false;
   let conversationId = null;
-  let customerEmail = null;
-  let emailCollected = false;
+  let customerEmail = EXTERNAL_EMAIL;
+  let emailCollected = !!EXTERNAL_EMAIL;
   let ws = null;
   let wsMode = false;
   let wsRetries = 0;
@@ -398,7 +399,10 @@
     }
 
     // Email collection
-    if (cfg.collect_email) {
+    if (EXTERNAL_EMAIL) {
+      document.getElementById("sai-email-form").style.display = "none";
+      document.getElementById("sai-input-area").style.display = "flex";
+    } else if (cfg.collect_email) {
       document.getElementById("sai-email-form").style.display = "block";
       document.getElementById("sai-input-area").style.display = "none";
       document.getElementById("sai-email-submit").onclick = () => {
@@ -966,7 +970,12 @@
         return;
       }
       if (state.conversationId) conversationId = state.conversationId;
-      if (state.customerEmail) {
+      if (EXTERNAL_EMAIL) {
+        customerEmail = EXTERNAL_EMAIL;
+        emailCollected = true;
+        document.getElementById("sai-email-form").style.display = "none";
+        document.getElementById("sai-input-area").style.display = "flex";
+      } else if (state.customerEmail) {
         customerEmail = state.customerEmail;
         emailCollected = true;
         document.getElementById("sai-email-form").style.display = "none";
@@ -983,8 +992,13 @@
 
   function newConversation() {
     conversationId = null;
-    customerEmail = null;
-    emailCollected = false;
+    if (EXTERNAL_EMAIL) {
+      customerEmail = EXTERNAL_EMAIL;
+      emailCollected = true;
+    } else {
+      customerEmail = null;
+      emailCollected = false;
+    }
     pendingFiles = [];
     localStorage.removeItem(STORAGE_KEY);
     const container = document.getElementById("sai-messages");
