@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Markdown from "react-markdown";
 import {
   getConversations,
   getConversation,
@@ -417,10 +418,8 @@ export default function ChatsPage() {
                       <div className="flex gap-2">
                         <Bot className="w-6 h-6 text-indigo-600 mt-1 shrink-0" />
                         <div className="max-w-md">
-                          <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5">
-                            <p className="text-sm whitespace-pre-wrap">
-                              {msg.content}
-                            </p>
+                          <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5 prose prose-sm max-w-none">
+                            <Markdown>{msg.content}</Markdown>
                           </div>
                           {msg.tool_call && msg.tool_call.name !== "escalate_to_human" && (
                             <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
