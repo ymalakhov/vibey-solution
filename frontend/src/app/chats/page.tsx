@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Markdown from "react-markdown";
 import {
   getConversations,
@@ -59,6 +60,15 @@ const priorityColor: Record<string, string> = {
 };
 
 export default function ChatsPage() {
+  return (
+    <Suspense>
+      <ChatsContent />
+    </Suspense>
+  );
+}
+
+function ChatsContent() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,6 +80,7 @@ export default function ChatsPage() {
   const statusFilterRef = useRef<string | undefined>(undefined);
   const selectedIdRef = useRef<string | null>(null);
   const selectedRef = useRef<Conversation | null>(null);
+  const initialIdHandled = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRetries = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -193,6 +204,22 @@ export default function ChatsPage() {
   useEffect(() => {
     loadConversations();
   }, [statusFilter]);
+
+  // Auto-select conversation from ?id= query param
+  useEffect(() => {
+    if (initialIdHandled.current) return;
+    const id = searchParams.get("id");
+    if (id && conversations.length > 0) {
+      initialIdHandled.current = true;
+      const conv = conversations.find((c) => c.id === id);
+      if (conv) {
+        selectConversation(conv);
+      } else {
+        // Conversation might exist but not in current filter — fetch directly
+        selectConversation({ id } as Conversation);
+      }
+    }
+  }, [conversations, searchParams]);
 
   async function selectConversation(conv: Conversation) {
     setLoading(true);
